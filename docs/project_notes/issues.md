@@ -17,6 +17,11 @@
 - **Description**: Built `git_commit.py` (20-line standalone CLI) + `generate_commit_message` MCP tool. Uses `claude -p` subprocess (OAuth, no API key). Published dev.to article and pushed to `enjoykumawat/my-git-manager`.
 - **URLs**: https://dev.to/enjoy_kumawat/i-fixed-the-ai-commit-messages-problem-in-50-lines-of-python-3a5a | https://github.com/enjoykumawat/my-git-manager
 
+### 2026-06-21 - Option C: OSS Contribution to nodejs/undici
+- **Status**: Completed (PR open, awaiting review)
+- **Description**: Added missing API docs for all 8 built-in interceptors (`dump`, `retry`, `redirect`, `decompress`, `responseError`, `dns`, `cache`, `deduplicate`). Created `docs/docs/api/Interceptors.md` + updated sidebar in `site.json`.
+- **URL**: https://github.com/nodejs/undici/pull/5446
+
 ### 2026-06-21 - Deleted oh-my-codex repo
 - **Status**: Completed (manual)
 - **Description**: Deleted `enjoykumawat/oh-my-codex` via GitHub Settings UI (API token lacked delete_repo scope)
