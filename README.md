@@ -76,6 +76,21 @@ Then just:
 git add -p && git ai
 ```
 
+### Pre-commit hook (auto mode)
+
+Let every `git commit` pre-fill the message automatically — you can still edit before saving:
+
+```bash
+# Apply to all repos on this machine (recommended)
+git config --global core.hooksPath d:/codes/my_git_manger/hooks
+
+# Or install into a single repo only
+cp hooks/prepare-commit-msg /path/to/your/repo/.git/hooks/
+chmod +x /path/to/your/repo/.git/hooks/prepare-commit-msg
+```
+
+After that, `git commit` opens your editor with the AI message already filled in.
+
 ## Claude Desktop config
 
 ```json

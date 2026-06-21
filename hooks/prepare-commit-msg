@@ -1,0 +1,8 @@
+#!/bin/sh
+# AI commit message pre-fill via Claude CLI
+# Skips merge commits, squash, and amend
+[ "$2" = "" ] || exit 0
+
+# Resolve git_commit.py relative to this hooks/ directory
+SCRIPT="$(cd "$(dirname "$0")/.." && pwd)/git_commit.py"
+python "$SCRIPT" > "$1" 2>/dev/null || true
