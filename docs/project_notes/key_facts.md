@@ -1,0 +1,63 @@
+# Key Facts
+
+> **Security:** Never store actual secrets here. Reference where they live, not the values.
+
+---
+
+## Credentials (location only)
+
+- **GITHUB_TOKEN** → `d:\codes\my_git_manger\.env` (protected by `.gitignore`)
+- **DEV_TO_API** → same `.env` file
+- Token scopes needed: `repo`, `user` — add `delete_repo` if repo deletion via API is required
+- **No ANTHROPIC_API_KEY** — Claude calls go through `claude -p` subprocess (OAuth session)
+
+## Usernames
+
+- **GitHub:** `enjoykumawat` (no underscore)
+- **DEV.to:** `enjoy_kumawat` (with underscore)
+- **Twitter:** `enjoykumawat`
+- **Profile README repo:** `enjoykumawat/enjoykumawat`
+
+## Project Files
+
+| File | Purpose |
+|------|---------|
+| `server.py` | Developer Presence MCP server (8 tools) |
+| `git_commit.py` | Standalone CLI — reads staged diff, outputs Conventional Commit via `claude -p` |
+| `post_article.py` | Posts `article_draft.md` to DEV.to as a draft |
+| `article_draft.md` | Source for DEV.to article (published 2026-06-21) |
+| `update_profile.py` | Pushes `template.md` to GitHub profile README |
+| `template.md` | Source of truth for GitHub profile README |
+| `requirements.txt` | Only dep: `mcp[cli]` |
+| `.env` | API keys — never committed |
+
+## MCP Server Tools
+
+**GitHub:** `get_github_profile`, `list_repos`, `get_repo_stats`
+**DEV.to:** `list_articles`, `create_article`, `update_article`, `get_article_stats`
+**AI:** `generate_commit_message(diff: str)` — returns Conventional Commit via `claude -p`
+
+## External APIs
+
+- **GitHub REST API:** `https://api.github.com` — auth via `Authorization: token <GITHUB_TOKEN>`
+- **DEV.to API:** `https://dev.to/api` — auth via `api-key` header
+
+## Running the Server
+
+```powershell
+# Dev mode (with MCP Inspector)
+mcp dev server.py
+
+# Direct
+python server.py
+```
+
+## Claude Desktop Config
+
+```json
+"developer-presence": {
+  "command": "python",
+  "args": ["d:/codes/my_git_manger/server.py"],
+  "env": { "GITHUB_TOKEN": "...", "DEV_TO_API": "..." }
+}
+```
