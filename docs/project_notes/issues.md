@@ -2,6 +2,11 @@
 
 ---
 
+### 2026-07-14 - DEV.to run blocked: dev.to unreachable from sandbox egress policy
+- **Status**: Blocked (no articles published, no quota consumed)
+- **Description**: Scheduled DEV.to publishing run could not get past Step 1 (quota check). `dev.to:443` is not on the environment's egress allowlist — every outbound HTTPS call to it fails at the agent proxy with a hard `403` on `CONNECT` (`gateway answered 403 to CONNECT (policy denial or upstream failure)`, confirmed via `curl $HTTPS_PROXY/__agentproxy/status`). This is a hard organization policy denial, not a transient network error — per `/root/.ccr/README.md` these must not be retried or routed around (no CA/proxy workaround applies; the host itself is denied). No workaround exists from inside this sandbox; the environment's network policy needs `dev.to` added to the allowlist for this to run.
+- **Action needed**: Either run the DEV.to publishing task from an environment whose egress policy allows `dev.to`, or get `dev.to` added to this environment's allowed egress hosts.
+
 ### 2026-07-04 - DEV.to: 3 articles published (batch)
 - **Status**: Completed (published live)
 - **Description**: Ranked trending dev.to ai/llm/mcp/claudecode posts by reactions + 3×comments. Picked 3 distinct, first-hand topics not overlapping the prior 11 posts:
