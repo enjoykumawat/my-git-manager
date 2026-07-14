@@ -2,6 +2,15 @@
 
 ---
 
+### 2026-07-14 - DEV.to: 2 articles published (third run, capped at daily max of 5)
+- **Status**: Completed (both live; verified 200 on each URL)
+- **Description**: Checked quota via `GET /api/articles/me/published` (had to add `User-Agent: Mozilla/5.0` — dev.to 403s the default urllib UA on GET too, not just POST). Today's total was already 3 (from the second run's batch below), so this run published 2 to land exactly at the 5-article daily cap rather than the normal 1-3 range. Ranked trending ai/llm/mcp/claudecode/agents/productivity posts by reactions + 3×comments; explicitly excluded "The Citation Lied Without Lying," "The Agent Faked a Test Log," and the fastmcp/unbounded-dependency post since those were this morning's source trends already used. Picked 2 themes with a distinct first-hand angle not covered by the prior 17 posts:
+  1. "Return on Attention: Why AI Code Reviews Are Wearing Us Out" trend (ai/productivity, score 124) → distinct from the "tests pass" verification-discipline post and the "citation lied" stale-memory post — this one is about the *workflow* cost of a mandatory second-AI-review step, grounded in this repo's own real `CLAUDE.md` line ("codex will review what you done") and a 3-bucket triage protocol (fix silently / ask first / skip silently), with real examples from the `vercel/eve` #454 DCO-signing decision (bucket: ask first) and the `nodejs/undici` #5446 review response (bucket: fix silently).
+  2. "I Deleted 200 Lines of Code I Didn't Write and Learned More Than When I Wrote It" trend (ai, score 124) → distinct from all prior OSS-contribution mentions (that PR was never written up on its own) — grounded fully in the real `nodejs/undici` #5446 review-response event: added `Interceptors.md` duplicating an existing but hard-to-find `Dispatcher.md` section, reviewer caught it, fix was -285/+3 lines on commit `fbac28a1`. Lesson: keyword grep found the term but not the existing section's shape, since it was buried as a subsection of a differently-named file.
+  - Tags: ai/claudecode/productivity/devtools; ai/agents/claudecode/debugging. Sources: `drafts/second-ai-reviewer-fatigue.md`, `drafts/undici-deletion-lesson.md`.
+  - https://dev.to/enjoy_kumawat/every-commit-in-my-repo-gets-reviewed-by-a-second-ai-heres-what-actually-changed-4k92
+  - https://dev.to/enjoy_kumawat/my-open-source-pr-added-285-lines-of-docs-a-reviewer-told-me-to-delete-most-of-them-they-were-3ii3
+
 ### 2026-07-14 - DEV.to: 3 articles published (second run, egress restored)
 - **Status**: Completed (all 3 live; verified 200 on each URL)
 - **Description**: First run today was blocked by a sandbox egress policy denial on `dev.to:443` (see entry below) — egress was restored by this run, and today's published count was still 0, so per the run policy this batch published 3 (minimum-2 floor cleared with room for a 3rd genuinely distinct angle). Ranked trending dev.to ai/llm/mcp/claudecode/agents/productivity posts by reactions + 3×comments; picked 3 themes with a distinct first-hand angle not covered by the prior 14 posts:
