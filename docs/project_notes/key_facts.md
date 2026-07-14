@@ -52,6 +52,11 @@ mcp dev server.py
 python server.py
 ```
 
+## Commit Conventions
+
+- **No AI attribution** — never add `Co-Authored-By:` or any Claude/AI reference to commit messages (global rule in `~/.claude/CLAUDE.md`)
+- Use Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:` etc.
+
 ## Claude Desktop Config
 
 ```json
