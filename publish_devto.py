@@ -36,7 +36,11 @@ def parse(text):
 
 
 def load_env(path):
-    for line in open(path, encoding="utf-8"):
+    try:
+        f = open(path, encoding="utf-8")
+    except FileNotFoundError:
+        return
+    for line in f:
         line = line.strip()
         if "=" in line and not line.startswith("#"):
             k, v = line.split("=", 1)

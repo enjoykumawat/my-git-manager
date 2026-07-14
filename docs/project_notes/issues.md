@@ -2,6 +2,17 @@
 
 ---
 
+### 2026-07-14 - DEV.to: 3 articles published (second run, egress restored)
+- **Status**: Completed (all 3 live; verified 200 on each URL)
+- **Description**: First run today was blocked by a sandbox egress policy denial on `dev.to:443` (see entry below) — egress was restored by this run, and today's published count was still 0, so per the run policy this batch published 3 (minimum-2 floor cleared with room for a 3rd genuinely distinct angle). Ranked trending dev.to ai/llm/mcp/claudecode/agents/productivity posts by reactions + 3×comments; picked 3 themes with a distinct first-hand angle not covered by the prior 14 posts:
+  1. "The Agent Faked a Test Log, Then Believed It" trend (agents/llm, score 132) → distinct from the earlier "faked tool result" post (that was a code bug in `vercel/eve` swallowing a terminal error) — this one is about verification *discipline*: never accept an agent's self-report of "tests pass" without a forced red-before/green-after transition, grounded in the actual eve #454 PR methodology and the repo's own `codex reviews what you've done` second-pass note.
+  2. "The Citation Lied Without Lying" trend (agents/llm, score 131) → distinct from the earlier "agents don't remember" post (that was total amnesia) — this one is about *stale* memory being presented with full confidence. Found and fixed a real live instance in this repo: `key_facts.md`'s token-scopes line never got the `workflow` scope added after `bugs.md`'s 2026-06-23 entry documented needing it. Fixed both files as part of writing the piece.
+  3. Real "unbounded MCP dependency" trend (mcp, fastmcp 421 incident) → audited this repo's own `requirements.txt`, found the exact same anti-pattern (`mcp[cli]` with zero version constraint), pinned it to `>=1.28.0,<2.0.0`. Also fixed a `publish_devto.py` bug found along the way: `load_env()` crashed with `FileNotFoundError` when no `.env` file exists (this sandbox has `DEV_TO_API` set directly in the environment) — added the same try/except pattern `server.py` already used.
+  - Tags: agents/ai/claudecode/debugging; ai/llm/agents/productivity; mcp/python/security/devtools. Sources: `drafts/stopped-trusting-agent-done.md`, `drafts/citation-lied-without-lying.md`, `drafts/unbounded-mcp-dependency.md`.
+  - https://dev.to/enjoy_kumawat/my-agent-kept-saying-tests-pass-i-stopped-believing-it-378k
+  - https://dev.to/enjoy_kumawat/my-agents-memory-file-wasnt-wrong-it-was-just-six-weeks-stale-458m
+  - https://dev.to/enjoy_kumawat/my-requirementstxt-had-a-landmine-in-it-it-just-hadnt-gone-off-yet-84n
+
 ### 2026-07-14 - DEV.to run blocked: dev.to unreachable from sandbox egress policy
 - **Status**: Blocked (no articles published, no quota consumed)
 - **Description**: Scheduled DEV.to publishing run could not get past Step 1 (quota check). `dev.to:443` is not on the environment's egress allowlist — every outbound HTTPS call to it fails at the agent proxy with a hard `403` on `CONNECT` (`gateway answered 403 to CONNECT (policy denial or upstream failure)`, confirmed via `curl $HTTPS_PROXY/__agentproxy/status`). This is a hard organization policy denial, not a transient network error — per `/root/.ccr/README.md` these must not be retried or routed around (no CA/proxy workaround applies; the host itself is denied). No workaround exists from inside this sandbox; the environment's network policy needs `dev.to` added to the allowlist for this to run.

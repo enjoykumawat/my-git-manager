@@ -8,7 +8,7 @@
 
 - **GITHUB_TOKEN** → `d:\codes\my_git_manger\.env` (protected by `.gitignore`)
 - **DEV_TO_API** → same `.env` file
-- Token scopes needed: `repo`, `user` — add `delete_repo` if repo deletion via API is required
+- Token scopes needed: `repo`, `user` — add `delete_repo` if repo deletion via API is required, add `workflow` if you'll ever push a branch that pulls in upstream `.github/workflows/*.yml` changes (fork OSS contributions) — see `bugs.md` 2026-06-23
 - **No ANTHROPIC_API_KEY** — Claude calls go through `claude -p` subprocess (OAuth session)
 
 ## Usernames
