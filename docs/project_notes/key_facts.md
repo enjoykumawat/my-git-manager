@@ -24,8 +24,7 @@
 |------|---------|
 | `server.py` | Developer Presence MCP server (8 tools) |
 | `git_commit.py` | Standalone CLI — reads staged diff, outputs Conventional Commit via `claude -p` |
-| `post_article.py` | Posts `article_draft.md` to DEV.to as a draft |
-| `article_draft.md` | Source for DEV.to article (published 2026-06-21) |
+| `article_draft.md` | Source for DEV.to article (published 2026-06-21) — `post_article.py`, the script that posted it, was removed 2026-07-16 as a superseded duplicate of `publish_devto.py` |
 | `update_profile.py` | Pushes `template.md` to GitHub profile README |
 | `template.md` | Source of truth for GitHub profile README |
 | `requirements.txt` | Only dep: `mcp[cli]` |
