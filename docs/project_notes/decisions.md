@@ -75,6 +75,8 @@
 
 **Decision:** Keep `drafts/` gitignored. Treat the `issues.md` log entry (topic rationale, tag choices, source filenames for context) plus the live DEV.to URL as the permanent record of each article. Draft markdown files are ephemeral working files, not archived.
 
+**Exception (2026-07-18):** `drafts/comment_replies.md` is un-ignored (`!drafts/comment_replies.md`). Unlike article drafts it is not a duplicate of published content — it is shared working state between the local machine and the comment-reply-drafter cloud routine (pending replies to paste + the drafted-state marker the `pending` command keys off), so it must live in the repo.
+
 **Alternatives Considered:**
 - Force-add drafts going forward (`git add -f`) → rejected: would silently accumulate hundreds of full-article markdown files into repo history over months for a blog-publishing side task, with no reader (the live URL already is the canonical published version)
 - Un-ignore `drafts/` entirely → rejected, same reason

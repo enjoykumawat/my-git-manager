@@ -24,6 +24,8 @@
 |------|---------|
 | `server.py` | Developer Presence MCP server (8 tools) |
 | `git_commit.py` | Standalone CLI — reads staged diff, outputs Conventional Commit via `claude -p` |
+| `reply_comments.py` | Lists unreplied+undrafted DEV.to comments as JSON (`pending`) |
+| `drafts/comment_replies.md` | Drafted comment replies awaiting manual paste (id_code presence = drafted) |
 | `article_draft.md` | Source for DEV.to article (published 2026-06-21) — `post_article.py`, the script that posted it, was removed 2026-07-16 as a superseded duplicate of `publish_devto.py` |
 | `update_profile.py` | Pushes `template.md` to GitHub profile README |
 | `template.md` | Source of truth for GitHub profile README |
@@ -40,6 +42,8 @@
 
 - **GitHub REST API:** `https://api.github.com` — auth via `Authorization: token <GITHUB_TOKEN>`
 - **DEV.to API:** `https://dev.to/api` — auth via `api-key` header
+- **DEV.to API write limits (verified 2026-07-18):** cannot create comments (`POST /api/comments` → 404) and cannot create reactions as a normal user (`POST /api/reactions` → 401 even with valid key + Forem v1 Accept header). Comment replies must be pasted manually — hence the draft-only pipeline.
+- **Comment `id_code`** = numeric comment id in base 26; comment URL is `https://dev.to/enjoy_kumawat/comment/<id_code>`
 
 ## Running the Server
 
