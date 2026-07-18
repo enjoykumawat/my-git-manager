@@ -64,3 +64,22 @@
 - ✅ Model version managed by Claude CLI defaults
 - ❌ Requires `claude` CLI to be in PATH
 - ❌ Slightly slower (subprocess spawn per call)
+
+---
+
+### ADR-005: `drafts/` stays local-only; the log entry + live URL is the permanent record (2026-07-18)
+
+**Context:**
+- The scheduled publishing task's instructions say to commit `drafts/<slug>.md` alongside the `issues.md` log entry
+- `.gitignore` has excluded `drafts/` since the repo's first commit — every run's "commit drafts + the log" has actually only ever committed the log entry (verified: `git log --all -- drafts/` is empty across 30+ published articles)
+
+**Decision:** Keep `drafts/` gitignored. Treat the `issues.md` log entry (topic rationale, tag choices, source filenames for context) plus the live DEV.to URL as the permanent record of each article. Draft markdown files are ephemeral working files, not archived.
+
+**Alternatives Considered:**
+- Force-add drafts going forward (`git add -f`) → rejected: would silently accumulate hundreds of full-article markdown files into repo history over months for a blog-publishing side task, with no reader (the live URL already is the canonical published version)
+- Un-ignore `drafts/` entirely → rejected, same reason
+
+**Consequences:**
+- ✅ Repo stays small; no duplicate copies of published content drifting from the live version
+- ✅ Matches what has actually been happening for 30+ articles, now documented instead of accidental
+- ❌ A draft's exact pre-publish markdown isn't recoverable after the fact — only the log's rationale and the live (post-DEV.to-formatting) article are
