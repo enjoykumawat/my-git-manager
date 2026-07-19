@@ -2,6 +2,10 @@
 
 ---
 
+### 2026-07-19 - DEV.to: 2 new comment replies drafted
+- **Status**: Completed
+- **Description**: Ran `reply_comments.py pending` — session started in detached HEAD again (recurring provisioning symptom, see `bugs.md` 2026-07-18), recovered with `scripts/sync-main.sh` before any git-writing work. 2 pending comments found, both from `alexshev`: one on "I Almost Hand-Rolled JSON-RPC for an MCP Server." (agreeing that boring MCP plumbing frees up taste for tool boundaries — replied with the two concrete gaps FastMCP's decorators didn't cover for free: the `min(per_page, 30)` clamp and opaque tool-call error formatting), one on "I Measured What My Agent's Own Memory File Costs to Read." (proposing periodic distillation as the fix — replied that this repo's own `bugs.md`/`decisions.md`/`key_facts.md` vs. raw `issues.md` split is already an informal version of that pattern, and named the actual gap: staleness detection in the distilled files is still manual). Drafted both in `drafts/comment_replies.md`.
+
 ### 2026-07-18 - DEV.to comment-reply pipeline set up; 20 backlog replies drafted
 - **Status**: Completed
 - **Description**: All 35 published articles had 20 total comments, none replied to. Verified the dev.to API cannot post comments (404) or reactions (401 for normal users), so full auto-reply is impossible via API — built a draft-only pipeline instead. Added `reply_comments.py` (`pending` → JSON of top-level comments not replied to on-site and not yet in `drafts/comment_replies.md`). Drafted replies for the entire 20-comment backlog in `drafts/comment_replies.md` (paste manually via each comment link, then delete the entry). Created cloud routine "DEV.to comment reply drafter" (trig_017t2Qn9abRsjNLjp8iGVCko, daily 02:30 UTC / 8:00am IST) that drafts replies for new comments and commits them, mirroring the publisher routine's environment. Note: `drafts/comment_replies.md` is un-ignored as a deliberate exception to ADR-005 — it's working state the cloud routine must read/write, not a duplicate of published content.

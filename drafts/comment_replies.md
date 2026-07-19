@@ -110,3 +110,13 @@ Honest answer to your question: session level, and I know that's the weak versio
 https://dev.to/enjoy_kumawat/comment/39om0
 
 Agreed — the diff can only ever explain *what*; the *why* lives in the author's head. My compromise: the hook drafts from the diff, but the message lands in my editor before the commit finalizes, so adding the why costs one edit instead of a blank page. The blank page was what kept producing "fix stuff" commits; the draft removes the blank page, the edit keeps the why human.
+
+## 3be55 — alexshev on "I Almost Hand-Rolled JSON-RPC for an MCP Server."
+https://dev.to/enjoy_kumawat/comment/3be55
+
+That's exactly the tradeoff I landed on writing this up — the boring plumbing removes a whole class of protocol bugs I'd have shipped myself (cancellation, weird client retries) for free. But it's not zero-judgment: FastMCP's schema generation didn't catch a `min(per_page, 30)` clamp one tool needed, and tool-call errors still come back opaque enough that I had to reformat them by hand. So the taste budget moves to tool boundaries like you said, but a sliver of it stays on the plumbing too.
+
+## 3be54 — alexshev on "I Measured What My Agent's Own Memory File Costs to Read."
+https://dev.to/enjoy_kumawat/comment/3be54
+
+That's basically the split I ended up with by accident: `issues.md` is the raw log, append-only, never pruned, and `bugs.md`/`decisions.md`/`key_facts.md` are the distilled operating model the agent actually reads first each run. I didn't design it as distillation up front, it just came from not wanting to re-read the full log every session, but "periodic distillation" is the right name for it. The part I haven't automated is *when* something in the distilled files goes stale versus the raw log — right now that's still a human noticing, not a process.
