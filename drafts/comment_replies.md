@@ -120,3 +120,43 @@ That's exactly the tradeoff I landed on writing this up — the boring plumbing 
 https://dev.to/enjoy_kumawat/comment/3be54
 
 That's basically the split I ended up with by accident: `issues.md` is the raw log, append-only, never pruned, and `bugs.md`/`decisions.md`/`key_facts.md` are the distilled operating model the agent actually reads first each run. I didn't design it as distillation up front, it just came from not wanting to re-read the full log every session, but "periodic distillation" is the right name for it. The part I haven't automated is *when* something in the distilled files goes stale versus the raw log — right now that's still a human noticing, not a process.
+
+## 3bh2i — alexshev on "My MCP Server Has 8 Tools and Zero Log Lines. Diagnosing a Failure Meant Guessing From the Outside."
+https://dev.to/enjoy_kumawat/comment/3bh2i
+
+Agreed, and that's exactly where I stopped short in this piece — I only got as far as "log the call," not "make the run diagnosable." Right now `_gh`/`_dev` still don't capture a request id or an argument snapshot, so if a call inside a tool fails I'd know it happened but not much about the shape of the failure. Result summaries and a defined set of failure classes (auth vs. rate-limit vs. transport vs. 4xx-from-policy) are the next real step, not the logging line itself.
+
+## 3bfgb — fromzerotoship on "df Said My Sandbox Had No Disk Left. It Wasn't Wrong, It Just Wasn't Answering the Question I Asked"
+https://dev.to/enjoy_kumawat/comment/3bfgb
+
+The WAF-to-405 example is the same shape exactly — a status code that's technically accurate for a question nobody asked ("did a rule fire") standing in for the one you actually asked ("did my request succeed"), and it costs you real time before you think to stop trusting the summary and read the body. Your running file of one-liners is basically what `bugs.md` is in this repo, and I'd bet it earns its keep the same way: worthless until 2am, then the only thing that saves you. The agent-overcorrection point is the one I'd underline back — a human misreading `df` shrugs, an agent misreading it can go looking for something to delete. That's the actual argument for writing the note down, not just convenience.
+
+## 3belg — mads_hansen_27b33ebfee4c9 on "My Comment-Reply Bot Hit a Wall the Docs Never Mentioned. That Wall Turned Out to Be a Security Feature."
+https://dev.to/enjoy_kumawat/comment/3belg
+
+Fair correction — I treated the 404-then-401 pair as confirmation, but you're right that's still an inference from behavior, not verification against the spec or an official statement. I haven't actually checked DEV.to's OpenAPI docs or source for this; I reasoned entirely from the two failure shapes. The capability matrix idea is the concrete fix — right now this repo has exactly one write endpoint (`create_article`) and nothing written down about what it can't do, which is precisely the setup where a working write gets generalized by habit to endpoints that were never tested.
+
+## 3bf35 — alexshev on "My Comment-Reply Bot Hit a Wall the Docs Never Mentioned. That Wall Turned Out to Be a Security Feature."
+https://dev.to/enjoy_kumawat/comment/3bf35
+
+That's a sharper way to put it than I did — publishing and replying look like the same category of write from inside my own code, but they carry different identity and abuse risk from the platform's side. "The wall is the consent surface" is a good enough line that I'm annoyed I didn't write it that way myself.
+
+## 3bf36 — alexshev on "I Fixed Unbounded Shell Output in an Open Source Agent. My First Draft Would Have Corrupted Text."
+https://dev.to/enjoy_kumawat/comment/3bf36
+
+Right — the part that made this bug sneaky is that a naive cap still looks like a safety fix, passes review, and only fails on input nobody put in the test fixtures. The real fix had to decide where to cut (byte-safe boundary, not code-unit), what marker to leave (`...[truncated]...` so the model knows something's missing rather than assuming it read everything), and that stderr/stdout both stay valid strings after the cut — three decisions, not one clamp.
+
+## 3bef5 — mads_hansen_27b33ebfee4c9 on "My AI Commit Script and My MCP Tool Run the Exact Same Code. Only One of Them Is Agentic."
+https://dev.to/enjoy_kumawat/comment/3bef5
+
+Good catch, and checking my own code against it: you're right, `-> str` doesn't solve it here. `generate_commit_message` in `server.py` has no empty-diff check at all — the script has one (`if not diff.strip(): print(...); raise SystemExit(1)`), but the MCP tool just passes whatever it gets straight to `_claude()` and returns whatever comes back. An agent calling it with an empty diff gets a string back either way, with nothing to tell it "no-op" from "here's your message." Schema + bounded error semantics is exactly the gap; I only built the schema half.
+
+## 3bf38 — alexshev on "My AI Commit Script and My MCP Tool Run the Exact Same Code. Only One of Them Is Agentic."
+https://dev.to/enjoy_kumawat/comment/3bf38
+
+Agreed — that's the part I underweighted while writing this. The decorator changes who can find and call the function and under what permission surface; the model invocation underneath never changes at all.
+
+## 3bf3e — alexshev on "My Blog Had 20 Unanswered Comments Across 35 Posts. Nothing Ever Told Me."
+https://dev.to/enjoy_kumawat/comment/3bf3e
+
+That's the honest read of it — the pipeline had a clean success metric (published, live, verified 200) and zero metric for anything downstream of publish. An unanswered-comments audit is also just cheaper to build than it sounds; the whole check ended up being the recursive `replied_by_me` walk plus a diff against what's already drafted, maybe 20 lines total.
