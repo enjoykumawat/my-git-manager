@@ -7,7 +7,14 @@
 # Root cause this works around: this repo's sessions are provisioned by
 # checking out a specific commit SHA, not the `main` ref, so every fresh
 # or resumed session can start in detached HEAD. See bugs.md 2026-07-18.
+#
+# Fetches origin/main first: the pinned-SHA checkout that produces the
+# detached HEAD doesn't go through a `main` refspec fetch, so the cached
+# refs/remotes/origin/main can already be behind it at session start,
+# ahead of anything this script itself does. See bugs.md 2026-07-22.
 set -e
+
+git fetch origin main -q 2>/dev/null || true
 
 if git symbolic-ref -q HEAD >/dev/null; then
     exit 0  # already on a branch
