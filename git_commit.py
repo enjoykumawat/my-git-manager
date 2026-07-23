@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """AI commit message generator — reads staged diff, returns a Conventional Commit."""
 import subprocess
+import sys
 
 SYSTEM = (
     "You are a git commit message generator. "
@@ -18,10 +19,15 @@ if not diff.strip():
     print("Nothing staged. Run `git add` first.")
     raise SystemExit(1)
 
-raw = subprocess.check_output(
-    ["claude", "-p", SYSTEM + "\n\n" + diff],
-    text=True,
-).strip()
+try:
+    raw = subprocess.check_output(
+        ["claude", "-p", SYSTEM + "\n\n" + diff],
+        text=True,
+        timeout=20,
+    ).strip()
+except subprocess.TimeoutExpired:
+    print("claude -p timed out after 20s", file=sys.stderr)
+    raise SystemExit(1)
 
 # Safety filter — drop any line that looks like attribution
 msg = "\n".join(

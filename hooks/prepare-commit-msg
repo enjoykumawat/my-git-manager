@@ -5,4 +5,5 @@
 
 # Resolve git_commit.py relative to this hooks/ directory
 SCRIPT="$(cd "$(dirname "$0")/.." && pwd)/git_commit.py"
-python "$SCRIPT" > "$1" 2>/dev/null || true
+MSG="$(python "$SCRIPT" 2>/dev/null)" && [ -n "$MSG" ] && printf '%s\n' "$MSG" > "$1"
+exit 0
