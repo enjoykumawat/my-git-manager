@@ -173,6 +173,8 @@ def get_article_stats(article_id: int) -> dict:
 @mcp.tool()
 def generate_commit_message(diff: str) -> str:
     """Generate a Conventional Commits message from a git diff string."""
+    if not diff.strip():
+        return "ERROR: empty diff — nothing to generate a commit message from."
     return _claude(
         diff,
         system=(
