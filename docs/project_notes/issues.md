@@ -2,6 +2,12 @@
 
 ---
 
+### 2026-07-24 - DEV.to: 6 new comment replies drafted
+- **Status**: Completed
+- **Description**: Ran `reply_comments.py pending` — 6 pending comments across 6 articles ("My Commit Hook Calls an LLM on Every Commit," "My MCP Tool Defaults to Draft Mode," "My GitHub Token Is Valid. My MCP Server Still Gets a 403," "Git Told Me I Was 14 Commits Ahead of Origin," "A Post-Commit Hook Told Me to Rewrite 8 Pushed Commits," "df Said My Sandbox Had No Disk Left"), all from `gnlassi`, `mads_hansen_27b33ebfee4c9`, `alexshev`, and `eduzsh`. Drafted all 6 in `drafts/comment_replies.md`, grounded in each article's log entry above rather than reused boilerplate. Notable ones: on "My MCP Tool Defaults to Draft Mode," a commenter's two-phase-authority/immutable-draft-hash proposal named the actual gap precisely — no promotion step with its own revocable credential exists today. On "My GitHub Token Is Valid...403," a commenter's trusted-header-at-the-boundary idea was compared against what `_gh`/`_dev` in `server.py` actually do (nothing — origin-vs-policy is only distinguishable by manually hitting `$HTTPS_PROXY/__agentproxy/status`).
+
+
+
 ### 2026-07-23 - DEV.to: 1 article published (second run of the day) — deliberately under quota, well of fresh material is thin
 
 - **Status**: Completed (live; verified via HTTP 200 fetch of the URL). Quota check showed 2 published today already (this morning's run), well under the 5-article cap and not at 0, so the "publish at least 2" floor didn't apply.
