@@ -3,12 +3,18 @@
 
 Usage:
     python reply_comments.py pending   # JSON of unreplied comments not yet drafted
+    python reply_comments.py audit     # JSON: drafted replies never actually posted on-site
 
 Skips comments already replied to on-site by ME, and comments whose id_code
 already appears in drafts/comment_replies.md (= reply already drafted).
 The dev.to API cannot post comments or reactions for normal users (verified
 2026-07-18: POST /api/comments is 404, POST /api/reactions is 401), so drafted
 replies are pasted manually via each comment_url.
+
+`drafted` is not `posted`: the paste step is manual and this pipeline runs
+unattended, so `audit` cross-checks every id_code in drafts/comment_replies.md
+against the live on-site thread and reports which ones still have no reply
+from ME — the file's growth is otherwise invisible to the pipeline itself.
 
 Reads DEV_TO_API from .env next to this script.
 """
@@ -71,6 +77,28 @@ def pending():
     return out
 
 
+def audit():
+    try:
+        drafted_text = open(DRAFTS, encoding="utf-8").read()
+    except FileNotFoundError:
+        drafted_text = ""
+    drafted_codes = set(re.findall(r"^## (\S+)", drafted_text, re.M))
+    unposted = []
+    for a in api(f"/articles?username={ME}&per_page=100"):
+        if not a["comments_count"]:
+            continue
+        for c in api(f"/comments?a_id={a['id']}"):
+            if c["id_code"] not in drafted_codes:
+                continue
+            if not any(ch["user"]["username"] == ME for ch in c["children"]):
+                unposted.append({
+                    "id_code": c["id_code"],
+                    "article": a["title"],
+                    "comment_url": f"https://dev.to/{ME}/comment/{c['id_code']}",
+                })
+    return {"drafted": len(drafted_codes), "never_posted": unposted}
+
+
 if __name__ == "__main__":
     if "--selftest" in sys.argv:
         me = {"user": {"username": ME}, "children": []}
@@ -81,5 +109,8 @@ if __name__ == "__main__":
     elif sys.argv[1:2] == ["pending"]:
         load_env()
         print(json.dumps(pending(), indent=2))
+    elif sys.argv[1:2] == ["audit"]:
+        load_env()
+        print(json.dumps(audit(), indent=2))
     else:
         sys.exit(__doc__)
