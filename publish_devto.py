@@ -68,7 +68,10 @@ def main(md_path):
                                  data=json.dumps(payload).encode(), method="POST")
     req.add_header("api-key", key)
     req.add_header("Content-Type", "application/json")
-    req.add_header("User-Agent", "Mozilla/5.0")  # dev.to 403s the default urllib UA
+    # dev.to blocks any User-Agent containing "urllib" (case-insensitive), not
+    # just the literal default — see docs/project_notes/bugs.md 2026-07-25.
+    # Any string avoiding that substring works; it doesn't need to look like a browser.
+    req.add_header("User-Agent", "Mozilla/5.0")
     try:
         r = json.load(urllib.request.urlopen(req, timeout=30))
     except urllib.error.HTTPError as e:

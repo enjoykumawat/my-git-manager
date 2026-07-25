@@ -37,11 +37,18 @@ def _gh(path, method="GET", data=None):
         return json.loads(r.read())
 
 
+# dev.to blocks any User-Agent containing "urllib" (case-insensitive) — this
+# string happens to avoid it, but nothing enforced that until the assert below.
+# See docs/project_notes/bugs.md 2026-07-25.
+_DEV_UA = "developer-presence-mcp/1.0"
+assert "urllib" not in _DEV_UA.lower(), "dev.to blocks any UA containing 'urllib' — see bugs.md 2026-07-25"
+
+
 def _dev(path, method="GET", data=None):
     req = urllib.request.Request(f"https://dev.to/api{path}", method=method)
     req.add_header("api-key", os.environ["DEV_TO_API"])
     req.add_header("Content-Type", "application/json")
-    req.add_header("User-Agent", "developer-presence-mcp/1.0")
+    req.add_header("User-Agent", _DEV_UA)
     if data:
         req.data = json.dumps(data).encode()
     with urllib.request.urlopen(req, timeout=30) as r:
