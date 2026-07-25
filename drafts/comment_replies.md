@@ -190,3 +190,18 @@ Agreed, and checking the hook's claim before acting on it is what saved me here 
 https://dev.to/enjoy_kumawat/comment/3bm64
 
 That's the part that worries me more than the misdiagnosis itself — the narration of "freeing space" reads identically whether the agent's clearing disposable cache or something you needed, so you can't tell from the commit message alone which one just happened. A preflight check against the actual quota (`shutil.disk_usage` compared to the known session limit, not raw `df`) turns "delete things and hope" into "this specific number is the real constraint," which is cheaper than auditing every cleanup diff after the fact like you're doing now.
+
+## 3bo55 — mads_hansen_27b33ebfee4c9 on "My Commit-Message Script Has an Empty-Diff Guard. My MCP Tool Version Doesn't — and It Doesn't Fail Loud."
+https://dev.to/enjoy_kumawat/comment/3bo55
+
+Fair — what I shipped is exactly the "plausible sentence" problem you're pointing at, just with an `ERROR:` prefix instead of prose. It's still a bare string a caller has to `.startswith()` on, not a typed contract or a structured union. The hash-binding point is the sharper one though: right now nothing ties the diff string passed into the tool to the actual staged tree at commit time, so a caller could reuse a stale or fabricated diff and still get a message that looks valid. That's a gap I hadn't considered — I was solving "don't silently commit an explanation," not "prove the message matches what's about to be committed."
+
+## 3bnel — cailab on "I Fixed a Timeout Bug Two Days Ago. The Copy of That Code Inside My MCP Server Still Has It."
+https://dev.to/enjoy_kumawat/comment/3bnel
+
+Yeah, that's the fix I still owe. `_claude()` in `server.py` and the inline `claude -p` call in `git_commit.py` are still two separate copies today — same STRIP list, same subprocess pattern, just duplicated instead of shared. I patched the timeout into both by hand, which is the exact "grep-and-hope" you're describing, not the actual fix. Pulling both into one module the script and the tool import from is the right next step, I just haven't done it yet.
+
+## 3bnd2 — skillselion on "My Commit Hook Calls an LLM on Every Commit. It Had No Timeout, So Neither Did `git commit`."
+https://dev.to/enjoy_kumawat/comment/3bnd2
+
+The hook already does the capture-to-a-variable version of your fix — `MSG="$(python "$SCRIPT" ...)"` only overwrites `$1` if `$MSG` is non-empty, so a failure never wipes git's own template. But you're right that the deadline still only lives inside Python (`subprocess.check_output(..., timeout=20)`), not at the shell level. That means a hang in interpreter startup or the `git diff --staged` call itself isn't covered by anything — only the `claude -p` call is. Wrapping the whole `python "$SCRIPT"` invocation in `timeout 15` is the more honest fix and I haven't made that change yet.

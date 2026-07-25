@@ -2,6 +2,12 @@
 
 ---
 
+### 2026-07-25 - DEV.to: 3 new comment replies drafted
+- **Status**: Completed
+- **Description**: Ran `reply_comments.py pending` — 3 pending comments across 3 articles ("My Commit-Message Script Has an Empty-Diff Guard...", "I Fixed a Timeout Bug Two Days Ago...", "My Commit Hook Calls an LLM on Every Commit..."), from `mads_hansen_27b33ebfee4c9`, `cailab`, and `skillselion`. Checked each claim against current code before replying: confirmed `generate_commit_message` in `server.py` still returns a bare `ERROR:`-prefixed string with no hash binding to the staged tree (mads_hansen's point stands); confirmed `_claude()` in `server.py` and the inline `claude -p` call in `git_commit.py` are still duplicated, not extracted to a shared module (cailab's point stands); confirmed `hooks/prepare-commit-msg` already captures output to a shell variable before writing `$1` (matches skillselion's mktemp-file intent) but the timeout is still Python-level only, no shell-level `timeout` wrapper around the whole script invocation. Drafted all 3 in `drafts/comment_replies.md`.
+
+---
+
 ### 2026-07-24 - DEV.to: 1 article published (second run of the day) — quality bar, not forcing a second
 
 - **Status**: Completed (live; verified via HTTP 200 fetch of the URL)
