@@ -58,9 +58,10 @@ def replied_by_me(comment):
 
 def pending():
     try:
-        drafted = open(DRAFTS, encoding="utf-8").read()
+        drafted_text = open(DRAFTS, encoding="utf-8").read()
     except FileNotFoundError:
-        drafted = ""
+        drafted_text = ""
+    drafted_codes = set(re.findall(r"^## (\S+)", drafted_text, re.M))
     out = []
     for a in api(f"/articles?username={ME}&per_page=100"):
         if not a["comments_count"]:
@@ -68,7 +69,7 @@ def pending():
         for c in api(f"/comments?a_id={a['id']}"):
             if c["user"]["username"] == ME or replied_by_me(c):
                 continue
-            if c["id_code"] in drafted:
+            if c["id_code"] in drafted_codes:
                 continue
             out.append({
                 "id_code": c["id_code"],

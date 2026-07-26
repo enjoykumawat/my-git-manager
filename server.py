@@ -75,7 +75,7 @@ def _claude(prompt: str, system: str = None) -> str:
     try:
         raw = subprocess.check_output(["claude", "-p", full], text=True, timeout=20).strip()
     except subprocess.TimeoutExpired:
-        return "claude -p timed out after 20s"
+        return "ERROR: claude -p timed out after 20s"
     return "\n".join(
         l for l in raw.splitlines()
         if not _STRIP_RE.search(l)
