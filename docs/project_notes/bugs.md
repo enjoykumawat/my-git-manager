@@ -5,6 +5,13 @@ Each entry: date, issue, root cause, solution, prevention.
 
 ---
 
+### 2026-07-27 - `scripts/install-hooks.sh` (fixed 2026-07-26) didn't survive the very next fresh container
+
+- **Issue**: The 2026-07-26 fix for "the commit-message hook never installs" added `scripts/install-hooks.sh` and verified it working in that session's clone. This session, less than 24 hours later, started with `.git/hooks/prepare-commit-msg` missing again — only git's stock `.sample` files present.
+- **Root Cause**: `.git/hooks/` is untracked, and this repo's sessions are provisioned by checking out a pinned commit SHA into a fresh container each run (same mechanism behind the recurring detached-HEAD bug, 2026-07-18 below). Running `install-hooks.sh` once in one container has no effect on the next container's `.git/hooks/`, which starts empty regardless of how many times the fix has already "worked." The prior fix's own prevention note — "run once per fresh clone/container" — depended on a future run reading the bug log before acting, which never happens.
+- **Solution**: Moved the `install-hooks.sh` call into the top of `scripts/sync-main.sh`, which already runs unconditionally at the start of every git-writing session for an unrelated reason (detached-HEAD recovery). The hook install is now a side effect of something the workflow already does every run, not a separate manual step.
+- **Prevention**: A fix whose last step is "run this once per environment" isn't complete in a system where the environment doesn't persist between runs — attach it to something that already runs unconditionally on every fresh session instead of trusting a note to be read.
+
 ### 2026-07-26 - `hooks/prepare-commit-msg` was never actually installed as a git hook in this environment
 - **Issue**: The 2026-07-23 timeout fix to `hooks/prepare-commit-msg` was verified by rereading the fixed code, never by confirming git would actually execute it. `git config --get core.hooksPath` (both local and `--global`) returned empty, and `.git/hooks/` contained only git's stock `prepare-commit-msg.sample` — no real hook installed.
 - **Root Cause**: A `hooks/` directory committed to a repo has no special meaning to git; only `.git/hooks/` (or a configured `core.hooksPath`) is ever executed, and neither is part of the tracked repo (`.git/` isn't versioned; `core.hooksPath` is a machine-local git config). README's documented install steps — `git config --global core.hooksPath d:/codes/my_git_manger/hooks` (hardcoded to one Windows machine) or `cp hooks/prepare-commit-msg .git/hooks/` (per-clone manual step) — are both one-time actions that don't travel with `git clone` or this repo's pinned-SHA container checkout, so every fresh clone/container starts with the hook inert.

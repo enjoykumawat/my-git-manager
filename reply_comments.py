@@ -51,9 +51,24 @@ def strip_html(h):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h)).strip()
 
 
-def replied_by_me(comment):
-    return any(c["user"]["username"] == ME or replied_by_me(c)
-               for c in comment["children"])
+def latest_message(comment):
+    """The most recently created message anywhere in this comment's subtree."""
+    latest = comment
+    for c in comment["children"]:
+        candidate = latest_message(c)
+        if candidate["created_at"] > latest["created_at"]:
+            latest = candidate
+    return latest
+
+
+def needs_reply(comment):
+    """True if the newest message in this thread isn't from ME yet.
+
+    Distinct from the old "did I ever post in this subtree" check, which
+    was true forever after a single reply, even if the other side posted
+    a fresh follow-up afterward. This checks who spoke last.
+    """
+    return latest_message(comment)["user"]["username"] != ME
 
 
 def pending():
@@ -67,7 +82,7 @@ def pending():
         if not a["comments_count"]:
             continue
         for c in api(f"/comments?a_id={a['id']}"):
-            if c["user"]["username"] == ME or replied_by_me(c):
+            if not needs_reply(c):
                 continue
             if c["id_code"] in drafted_codes:
                 continue
@@ -105,10 +120,22 @@ def audit():
 
 if __name__ == "__main__":
     if "--selftest" in sys.argv:
-        me = {"user": {"username": ME}, "children": []}
-        other = {"user": {"username": "x"}, "children": []}
-        assert replied_by_me({"user": {"username": "x"}, "children": [{"user": {"username": "y"}, "children": [me]}]})
-        assert not replied_by_me({"user": {"username": "x"}, "children": [other]})
+        def msg(user, ts, children=None):
+            return {"user": {"username": user}, "created_at": ts, "children": children or []}
+
+        # I replied once (day 1) — no follow-up since. Handled.
+        answered = msg("x", "2026-07-24T08:00:00Z", [msg(ME, "2026-07-25T10:00:00Z")])
+        assert not needs_reply(answered)
+
+        # I replied once (day 1), then they followed up again (day 2). Still open.
+        followed_up = msg("x", "2026-07-24T08:00:00Z", [
+            msg(ME, "2026-07-25T10:00:00Z"),
+            msg("x", "2026-07-26T09:00:00Z"),
+        ])
+        assert needs_reply(followed_up)
+
+        # Untouched top-level comment. Open.
+        assert needs_reply(msg("x", "2026-07-24T08:00:00Z"))
         print("selftest ok")
     elif sys.argv[1:2] == ["pending"]:
         load_env()

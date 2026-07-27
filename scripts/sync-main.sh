@@ -12,7 +12,16 @@
 # detached HEAD doesn't go through a `main` refspec fetch, so the cached
 # refs/remotes/origin/main can already be behind it at session start,
 # ahead of anything this script itself does. See bugs.md 2026-07-22.
+#
+# Also (re-)installs git hooks every run: .git/hooks/ is untracked, so
+# scripts/install-hooks.sh being run once in one container's clone doesn't
+# carry over to the next fresh container — it has to run again on every
+# session, and nothing else in this repo's workflow called it automatically.
+# See bugs.md 2026-07-27.
 set -e
+
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+"$HERE/scripts/install-hooks.sh" >/dev/null
 
 git fetch origin main -q 2>/dev/null || true
 
