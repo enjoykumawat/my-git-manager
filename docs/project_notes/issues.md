@@ -2,6 +2,10 @@
 
 ---
 
+### 2026-07-27 - DEV.to: 7 new comment replies drafted
+- **Status**: Completed
+- **Description**: Ran `reply_comments.py pending` — 7 pending comments across 6 articles ("I Gave My MCP Tool an ERROR: Convention...", "My AI-Attribution Filter Strips Any Commit Mentioning \"llm\"...", "My prepare-commit-msg Hook Got a Timeout Fix 3 Days Ago...", "My Project Has a Memory File...", "My GitHub Token Is Valid...403", "My MCP Server Has 8 Tools and Zero Log Lines..."), from `alexshev`, `mads_hansen_27b33ebfee4c9`, and `neelagiri65`. Checked each claim against current code before replying: confirmed `server.py`'s `_claude()` still has only two failure paths and no fixture-style test suite (alexshev's point on 3c00h stands); confirmed every MCP tool still returns a bare `str`/`dict` with no typed error variant, just a consistent `ERROR:` prefix (mads_hansen's structured-shape point on 3c0a8 stands); confirmed `_STRIP_RE` is already anchored-phrase, not bare-substring, so responded on why hard exclusion still fits this specific filter (3c00b); confirmed `hooks/prepare-commit-msg` has no self-reporting (no last-run timestamp/exit-state log) despite now being actually installed (3c00j); confirmed `scripts/check_key_facts.py` exists but is a manual check, not one that runs before an agent trusts `key_facts.md` (3c00a); confirmed via `bugs.md` 2026-07-22 that the GitHub 403 was proxy-authored, not a client-side rejection (3bpji); confirmed `server.py` still has zero logging calls (3bpjj). Drafted all 7 in `drafts/comment_replies.md`.
+
 ### 2026-07-26 - DEV.to: 2 articles published (second run of the day)
 
 - **Status**: Completed (both live; verified via HTTP 200 fetch of each URL)
