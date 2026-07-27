@@ -162,9 +162,31 @@ def create_article(title: str, body_markdown: str, tags: list[str] = None, publi
     return {"id": result["id"], "url": result.get("url"), "published": result.get("published")}
 
 
+_ARTICLE_UPDATE_LOG = "logs/article_updates.jsonl"
+
+
+def _log_article_update(article_id, before, fields_changed, after):
+    os.makedirs(os.path.dirname(_ARTICLE_UPDATE_LOG), exist_ok=True)
+    entry = {
+        "article_id": article_id,
+        "fields_changed": sorted(fields_changed),
+        "title_before": before.get("title"),
+        "title_after": after.get("title"),
+        "published_before": before.get("published"),
+        "published_after": after.get("published"),
+        "url": after.get("url"),
+    }
+    with open(_ARTICLE_UPDATE_LOG, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
 @mcp.tool()
 def update_article(article_id: int, title: str = None, body_markdown: str = None, published: bool = None) -> dict:
-    """Update an existing DEV.to article by id."""
+    """Update an existing DEV.to article by id. Fetches the article's current
+    state first so the diff is known and logged before the write lands —
+    a wrong or hallucinated article_id used to silently overwrite whatever
+    it pointed at with no trace. See bugs.md 2026-07-27."""
+    before = _dev(f"/articles/{article_id}")
     article = {}
     if title is not None:
         article["title"] = title
@@ -173,7 +195,16 @@ def update_article(article_id: int, title: str = None, body_markdown: str = None
     if published is not None:
         article["published"] = published
     result = _dev(f"/articles/{article_id}", method="PUT", data={"article": article})
-    return {"id": result["id"], "url": result.get("url"), "published": result.get("published")}
+    _log_article_update(article_id, before, article.keys(), result)
+    return {
+        "id": result["id"],
+        "url": result.get("url"),
+        "published": result.get("published"),
+        "diff": {
+            "title": {"before": before.get("title"), "after": result.get("title")},
+            "published": {"before": before.get("published"), "after": result.get("published")},
+        },
+    }
 
 
 @mcp.tool()
