@@ -240,3 +240,26 @@ Confirmed it's the proxy, not the client rejecting locally. I hit `$HTTPS_PROXY/
 https://dev.to/enjoy_kumawat/comment/3bpjj
 
 Honestly, neither — `server.py` still has zero logging calls today, same as when I wrote that piece. I got as far as naming what's missing (a request id and argument snapshot per call, a defined set of failure classes like auth/rate-limit/transport/4xx-from-policy) but haven't shipped even the print-statement version yet. It's on the list, not done.
+
+## 3c102 — cailab on "I Fixed a Timeout Bug Two Days Ago. The Copy of That Code Inside My MCP Server Still Has It."
+[skip — spam. References "SRE Sidekick," a "Vercel import issue," and OTel/GenAI tracing conventions — none of which exist anywhere in this repo. Doesn't engage the actual article (duplicated timeout logic between git_commit.py and server.py's _claude()). Reads like a templated bot comment written for a different post.]
+
+## 3c1o2 — mads_hansen_27b33ebfee4c9 on "My MCP Tool Can Overwrite Any of My Live Articles With Just an Integer. No Diff, No Log, No Warning."
+https://dev.to/enjoy_kumawat/comment/3c1o2
+
+Right on the crash window — `update_article` in `server.py` fetches `before`, does the PUT, then calls `_log_article_update` with the result, so a process death or timeout between a landed PUT and that log call leaves a write with no record, exactly what you're describing. And you're right that fetch-then-write is still check-then-act: nothing stops another writer (me running the tool twice, or an edit from the dev.to UI) from landing between the GET and the PUT. I haven't checked whether dev.to's API exposes any conditional-write primitive (ETag, `If-Match`, a revision field) to build a real compare-and-set on top of — that's the actual next thing to check before promising more than "fetch first, log after," which is what I've got today.
+
+## 3c1i9 — alexshev on "My Fix for \"The Git Hook Never Installs\" Landed Yesterday. Today's Container Didn't Have It Either."
+https://dev.to/enjoy_kumawat/comment/3c1i9
+
+That's fair, and it's exactly the gap the fix I shipped doesn't close. What I did was attach `install-hooks.sh` to `sync-main.sh`, which already runs unconditionally at the start of every session for an unrelated reason — so the hook gets reinstalled every run instead of depending on someone remembering to run a one-time step. But it's silent: no version stamp, no install path logged, no record of when it last actually ran. Right now "proof it's present" is still me rereading the script, not the runtime telling me. Your receipt idea is the right next layer on top of what I have.
+
+## 3c1i8 — alexshev on "My Comment Pipeline Marks a Thread \"Handled\" the Moment I Reply Once. A Follow-Up Question Proved It Wrong."
+https://dev.to/enjoy_kumawat/comment/3c1i8
+
+Agreed, and I ended up landing close to what you're describing, just without a stored state at all. `needs_reply()` in `reply_comments.py` now walks the whole thread and checks who posted the newest message, not whether I ever replied — so there's no "handled" flag that can go stale, it's recomputed fresh every run from who spoke last. Functionally that gets me your "waiting/monitoring" case for free: if they follow up after my reply, they're now the latest speaker and the thread shows up as pending again. What I don't have is an explicit third state for "no actionable next move left" — right now it's binary, needs-reply or not.
+
+## 3c1ih — alexshev on "My Comment-Dedup Check Used \"in\" on a Whole Markdown File. A Date in a Sentence Broke It."
+https://dev.to/enjoy_kumawat/comment/3c1ih
+
+Fixed the same way you're describing, actually — `pending()` in `reply_comments.py` now pulls `^## (\S+)` headers out of the drafts file into a set of id_codes and checks membership against that, instead of a raw substring `in` on the whole file. So it's a canonical key now, just the comment id rather than a hash of the text, sitting right next to the human-readable log the way you suggested. Markdown stayed the audit trail; it stopped being the lookup structure.

@@ -2,6 +2,14 @@
 
 ---
 
+### 2026-07-28 - DEV.to: drafted replies for 5 pending comments (4 replies + 1 skip)
+
+- **Status**: Completed
+- **Description**: `reply_comments.py pending` returned 5 comments across 4 articles. Drafted 4: mads_hansen on the `update_article` blind-write piece (confirmed the post-PUT log call still leaves a crash window, and that no conditional-write primitive exists yet), alexshev on the git-hook-install piece (confirmed the fix is silent — no version/timestamp receipt), alexshev on the comment-pipeline "handled" piece (confirmed already fixed — `needs_reply()` now checks latest speaker, not ever-replied), alexshev on the dedup piece (confirmed already fixed — `pending()` now matches `^## (\S+)` headers into a set instead of raw substring `in`). Skipped 1 (cailab, `3c102`) as spam — referenced "SRE Sidekick," a Vercel import issue, and OTel tracing conventions that don't exist anywhere in this repo; didn't engage the actual article.
+- Source: `drafts/comment_replies.md`.
+
+---
+
 ### 2026-07-27 - DEV.to: 1 article published (second run of the day) — quality bar, not forcing more
 
 - **Status**: Completed (live; verified via HTTP 200 fetch of the URL)
