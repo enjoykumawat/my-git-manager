@@ -37,9 +37,16 @@ try:
         ["claude", "-p", SYSTEM + "\n\n" + diff],
         text=True,
         timeout=20,
+        stderr=subprocess.PIPE,
     ).strip()
 except subprocess.TimeoutExpired:
     print("claude -p timed out after 20s", file=sys.stderr)
+    raise SystemExit(1)
+except subprocess.CalledProcessError as e:
+    print(f"claude -p exited {e.returncode}: {(e.stderr or '').strip()[:200]}", file=sys.stderr)
+    raise SystemExit(1)
+except FileNotFoundError:
+    print("claude CLI not found on PATH", file=sys.stderr)
     raise SystemExit(1)
 
 # Safety filter — drop any line that looks like attribution

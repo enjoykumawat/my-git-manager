@@ -32,14 +32,37 @@ def documented_files():
     return set(re.findall(r"`([\w./-]+)`", text))
 
 
+def project_files_table_rows():
+    """Filenames listed as the first column of the Project Files table —
+    the ones key_facts.md claims are real, working parts of the repo, as
+    opposed to any other backticked token (API paths, env var names, etc.)
+    that happens to appear elsewhere in the file."""
+    text = KEY_FACTS.read_text()
+    m = re.search(r"## Project Files\n\n(.*?)\n\n##", text, re.S)
+    section = m.group(1) if m else ""
+    return re.findall(r"^\| `([^`]+)` \|", section, re.M)
+
+
 def main():
+    ok = True
     missing = [f for f in real_files() if f not in documented_files()]
     if missing:
+        ok = False
         print("key_facts.md's Project Files table is missing:")
         for f in missing:
             print(f"  - {f}")
+    # .env is documented as intentionally never committed (key_facts.md says
+    # so in its own row) — its absence on disk is by design, not drift.
+    phantom = [f for f in project_files_table_rows() if f != ".env" and not (ROOT / f).exists()]
+    if phantom:
+        ok = False
+        print("key_facts.md's Project Files table documents files that don't exist on disk:")
+        for f in phantom:
+            print(f"  - {f}")
+    if ok:
+        print("key_facts.md is in sync with repo scripts.")
+    else:
         sys.exit(1)
-    print("key_facts.md is in sync with repo scripts.")
 
 
 if __name__ == "__main__":

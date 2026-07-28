@@ -73,9 +73,15 @@ _STRIP_RE = re.compile("|".join(_STRIP_PATTERNS), re.IGNORECASE)
 def _claude(prompt: str, system: str = None) -> str:
     full = (system + "\n\n" + prompt) if system else prompt
     try:
-        raw = subprocess.check_output(["claude", "-p", full], text=True, timeout=20).strip()
+        raw = subprocess.check_output(
+            ["claude", "-p", full], text=True, timeout=20, stderr=subprocess.PIPE
+        ).strip()
     except subprocess.TimeoutExpired:
         return "ERROR: claude -p timed out after 20s"
+    except subprocess.CalledProcessError as e:
+        return f"ERROR: claude -p exited {e.returncode}: {(e.stderr or '').strip()[:200]}"
+    except FileNotFoundError:
+        return "ERROR: claude CLI not found on PATH"
     return "\n".join(
         l for l in raw.splitlines()
         if not _STRIP_RE.search(l)

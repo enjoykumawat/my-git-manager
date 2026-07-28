@@ -27,8 +27,6 @@
 | `reply_comments.py` | Lists unreplied+undrafted DEV.to comments as JSON (`pending`) |
 | `drafts/comment_replies.md` | Drafted comment replies awaiting manual paste (id_code presence = drafted) |
 | `article_draft.md` | Source for DEV.to article (published 2026-06-21) — `post_article.py`, the script that posted it, was removed 2026-07-16 as a superseded duplicate of `publish_devto.py` |
-| `update_profile.py` | Pushes `template.md` to GitHub profile README |
-| `template.md` | Source of truth for GitHub profile README |
 | `publish_devto.py` | Publishes a `drafts/<slug>.md` file (frontmatter + body) to DEV.to. Called directly by the scheduled publishing task's Step 4 — does not go through the MCP server's `create_article` tool |
 | `scripts/sync-main.sh` | Fast-forwards a detached-HEAD session back onto `origin/main`; safe to run unconditionally at the start of any git-writing session (`bugs.md` 2026-07-18) |
 | `hooks/prepare-commit-msg` | Git hook: captures `git_commit.py`'s output before writing it to the commit editor, so a failed AI call leaves git's own template alone instead of wiping it (`bugs.md` 2026-07-23) |
