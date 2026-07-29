@@ -5,6 +5,18 @@ Each entry: date, issue, root cause, solution, prevention.
 
 ---
 
+### 2026-07-29 - `update_article`'s fetch-before-write diff/log (fixed 2026-07-27) never covered `body_markdown`
+- **Issue**: The 2026-07-27 fix added a `diff` return field and a JSONL audit log to `update_article`, but both were hardcoded to `title`/`published` regardless of which field the caller actually changed. A `body_markdown`-only write — the tool's main real use — produced a diff showing `title`/`published` both unchanged, with no indication the body had been replaced; the log recorded `fields_changed: ["body_markdown"]` but no before/after text.
+- **Root Cause**: The diff dict and log entry were built as fixed-shape literals covering the two short, structured fields, rather than derived from `article.keys()` (the fields actually part of the write). `body_markdown` is unbounded free text, easy to leave out of a dict literal without the omission looking wrong.
+- **Solution**: `diff` is now built as `{field: {...} for field in article}`. `_log_article_update` now logs before/after only for fields present in `fields_changed`. Verified offline against stubbed before/after states — a body-only write now shows the actual old/new text in both the response and the log.
+- **Prevention**: A diff/audit fix that hardcodes which fields it covers isn't verified until you've called it with the field a real caller is most likely to touch, not just the fields that were easiest to write down.
+
+### 2026-07-29 - `server.py`'s `generate_commit_message` never got the 2026-06-21 system-prompt hardening that `git_commit.py` did
+- **Issue**: Commit `1f8808c` (2026-06-21, "fix: strip AI attribution lines from generated commit messages") strengthened `git_commit.py`'s `SYSTEM` prompt with an explicit "no co-author lines, no signatures, no AI references" instruction, and added the shared `_STRIP` filter to both files' `_claude()`/inline call. `server.py`'s `generate_commit_message` tool got the STRIP filter (via the shared `_claude()`) but its own inline system-prompt argument was never updated to match, and still read the pre-hardening text through two later regex-hardening passes (2026-07-22, 2026-07-26).
+- **Root Cause**: The STRIP filter is a shared constant both files diff against on every hardening pass; the system prompt is just an inline string argument with nothing forcing a side-by-side comparison, so the two copies' regex stayed in sync while their prompts silently forked.
+- **Solution**: Updated `server.py`'s `generate_commit_message` system prompt to match `git_commit.py`'s verbatim.
+- **Prevention**: When two code paths share a hardening fix, diff the whole prompt/instruction text, not just the constant that has a name and is easy to grep for.
+
 ### 2026-07-27 - `scripts/install-hooks.sh` (fixed 2026-07-26) didn't survive the very next fresh container
 
 - **Issue**: The 2026-07-26 fix for "the commit-message hook never installs" added `scripts/install-hooks.sh` and verified it working in that session's clone. This session, less than 24 hours later, started with `.git/hooks/prepare-commit-msg` missing again — only git's stock `.sample` files present.

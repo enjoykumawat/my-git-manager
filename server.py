@@ -173,15 +173,13 @@ _ARTICLE_UPDATE_LOG = "logs/article_updates.jsonl"
 
 def _log_article_update(article_id, before, fields_changed, after):
     os.makedirs(os.path.dirname(_ARTICLE_UPDATE_LOG), exist_ok=True)
-    entry = {
-        "article_id": article_id,
-        "fields_changed": sorted(fields_changed),
-        "title_before": before.get("title"),
-        "title_after": after.get("title"),
-        "published_before": before.get("published"),
-        "published_after": after.get("published"),
-        "url": after.get("url"),
-    }
+    entry = {"article_id": article_id, "fields_changed": sorted(fields_changed), "url": after.get("url")}
+    # only log before/after for fields that were actually part of this write —
+    # a fixed title/published pair told you nothing when body_markdown was the
+    # field that changed. See docs/project_notes/bugs.md 2026-07-29.
+    for field in fields_changed:
+        entry[f"{field}_before"] = before.get(field)
+        entry[f"{field}_after"] = after.get(field)
     with open(_ARTICLE_UPDATE_LOG, "a") as f:
         f.write(json.dumps(entry) + "\n")
 
@@ -206,9 +204,13 @@ def update_article(article_id: int, title: str = None, body_markdown: str = None
         "id": result["id"],
         "url": result.get("url"),
         "published": result.get("published"),
+        # only the fields actually written show up here — previously this was
+        # a fixed {title, published} pair regardless of what changed, so a
+        # body_markdown-only write showed an all-unchanged diff. See bugs.md
+        # 2026-07-29.
         "diff": {
-            "title": {"before": before.get("title"), "after": result.get("title")},
-            "published": {"before": before.get("published"), "after": result.get("published")},
+            field: {"before": before.get(field), "after": result.get(field)}
+            for field in article
         },
     }
 
@@ -236,7 +238,8 @@ def generate_commit_message(diff: str) -> str:
         diff,
         system=(
             "You are a git commit message generator. "
-            "Output ONLY the commit message — no explanation, no markdown, no quotes. "
+            "Output ONLY the commit message — one line, no explanation, no markdown, no quotes, "
+            "no co-author lines, no signatures, no AI references. "
             "Follow Conventional Commits: type(scope): subject. "
             "Types: feat, fix, docs, style, refactor, test, chore. "
             "Subject: imperative, lowercase, max 72 chars."
