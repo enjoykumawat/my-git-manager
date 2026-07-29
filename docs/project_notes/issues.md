@@ -2,6 +2,14 @@
 
 ---
 
+### 2026-07-29 - DEV.to: drafted replies for 4 new comments
+
+- **Status**: Completed
+- **Description**: `reply_comments.py pending` returned 4 comments across 2 articles. Three (`mads_hansen_27b33ebfee4c9`, `max_quimby`, `zira125`) landed on "My MCP Server Holds Two API Keys," each pushing past the two-process split that article sketches and stopped short of applying — toward per-tool capability injection, brokered short-lived credentials, and adversarial boundary fixtures. Grounded all three in the actual current state of `server.py`: still one process, `load_env()` still loads both `GITHUB_TOKEN` and `DEV_TO_API` into the same `os.environ` at import, no broker, no fixture, no audit trail — none of what's proposed has been built. The fourth (`neelagiri65`, on "I Gave My MCP Tool an ERROR: Convention") asked whether the taught/untaught failure-path gap was one-off; answered from the very next article in this log (`d91ebc9`), which found a third failure path (`CalledProcessError`, `FileNotFoundError`) days after the first "fix" declared the convention settled — confirms it wasn't one-off, and there's still no exhaustive failure-mode spec, just incidents patched as found.
+- Source: `drafts/comment_replies.md`.
+
+---
+
 ### 2026-07-28 - DEV.to: 1 article published (second run of the day) — quality bar, not forcing more
 
 - **Status**: Completed (live; verified via HTTP 200 fetch of the URL)

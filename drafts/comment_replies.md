@@ -263,3 +263,23 @@ Agreed, and I ended up landing close to what you're describing, just without a s
 https://dev.to/enjoy_kumawat/comment/3c1ih
 
 Fixed the same way you're describing, actually — `pending()` in `reply_comments.py` now pulls `^## (\S+)` headers out of the drafts file into a set of id_codes and checks membership against that, instead of a raw substring `in` on the whole file. So it's a canonical key now, just the comment id rather than a hash of the text, sitting right next to the human-readable log the way you suggested. Markdown stayed the audit trail; it stopped being the lookup structure.
+
+## 3c34p — mads_hansen_27b33ebfee4c9 on "My MCP Server Holds Two API Keys. Every Tool Call Runs in the Same Process as Both."
+https://dev.to/enjoy_kumawat/comment/3c34p
+
+I stopped well short of what you're describing — the article sketches a two-process split (separate `.env`, separate `FastMCP` instance per credential domain) as the fix and says outright it didn't apply it. Today `server.py` is still one process: `load_env()` loads `GITHUB_TOKEN` and `DEV_TO_API` straight into `os.environ` at import, and every one of the 8 tools sits in that same environment regardless of what it needs, including `generate_commit_message`, which touches neither API. So no brokered handles, no per-invocation capability, no adversarial fixtures testing the boundary — there isn't a boundary yet to test. Your point about two processes on the same Unix user still sharing `/proc` and inherited descriptors is sharper than the split I proposed; even the version I haven't built yet wouldn't close that on its own.
+
+## 3c3el — max_quimby on "My MCP Server Holds Two API Keys. Every Tool Call Runs in the Same Process as Both."
+https://dev.to/enjoy_kumawat/comment/3c3el
+
+Neither, honestly. The article stops at sketching a two-process split — separate `.env` per credential domain, separate `FastMCP` instances — and says so instead of shipping it. Right now it's still one process: `load_env()` puts both tokens in `os.environ` at import, and every tool inherits the whole thing whether it calls GitHub, dev.to, or neither. No broker, so no per-invocation token and no audit trail of which tool used which credential when — that's the part of your question I can't answer yet because it doesn't exist.
+
+## 3c3g3 — zira125 on "My MCP Server Holds Two API Keys. Every Tool Call Runs in the Same Process as Both."
+https://dev.to/enjoy_kumawat/comment/3c3g3
+
+Agreed that's the stronger contract, and it's exactly where the piece stopped — it names capability injection as the real fix but only sketches the two-process split, doesn't build it. `server.py` today is a single process with both credentials landing in `os.environ` via `load_env()` at import, so there's no boundary yet for a fixture to test reaching a sibling env or an unauthorized host against, and no per-invocation record of tool identity, destination, or credential audience. The revocation/audit story you're describing is the next layer up from a fix I haven't shipped yet.
+
+## 3c3dg — neelagiri65 on "I Gave My MCP Tool an ERROR: Convention. I Only Taught It to One of Its Two Failure Paths."
+https://dev.to/enjoy_kumawat/comment/3c3dg
+
+Not one-off — it repeated almost immediately. That article fixed two *returning* failure paths (empty-diff guard, timeout) so both carried the `ERROR:` prefix and treated the convention as settled. It wasn't: `subprocess.check_output` also raises `CalledProcessError` on a non-zero exit and `FileNotFoundError` if the binary's missing from `PATH`, and neither is a `TimeoutExpired`, so neither was caught by the one `except` clause in `server.py`'s `_claude()` or `git_commit.py`'s inline call. Verified live — a stand-in `claude` that exits 1 produced a raw traceback, not an `ERROR:` string. So yes, the tool needs a spec enumerating the actual failure surface, not fixes found one incident at a time. I've now patched three paths (timeout, non-zero exit, missing binary) that way and still don't have that spec.
