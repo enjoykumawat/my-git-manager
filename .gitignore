@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 codes/
 drafts/*
-!drafts/comment_replies.md
+!drafts/*.md
 .omc/
 .claude/
 CLAUDE.md
