@@ -28,6 +28,12 @@ mcp = FastMCP("developer-presence")
 
 
 def _gh(path, method="GET", data=None):
+    # No GitHub tool in this server writes anything — GITHUB_TOKEN is scoped
+    # `repo, user` (full write access, see key_facts.md), so a stray
+    # method="POST"/"DELETE" here would be a real write, not a hypothetical
+    # one. Enforced, not just true by convention. See bugs.md 2026-07-30.
+    if method != "GET":
+        raise ValueError(f"_gh is read-only — got method={method!r}")
     req = urllib.request.Request(f"https://api.github.com{path}", method=method)
     req.add_header("Authorization", f"token {os.environ['GITHUB_TOKEN']}")
     req.add_header("Accept", "application/vnd.github.v3+json")
