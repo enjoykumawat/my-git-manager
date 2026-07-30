@@ -283,3 +283,23 @@ Agreed that's the stronger contract, and it's exactly where the piece stopped �
 https://dev.to/enjoy_kumawat/comment/3c3dg
 
 Not one-off — it repeated almost immediately. That article fixed two *returning* failure paths (empty-diff guard, timeout) so both carried the `ERROR:` prefix and treated the convention as settled. It wasn't: `subprocess.check_output` also raises `CalledProcessError` on a non-zero exit and `FileNotFoundError` if the binary's missing from `PATH`, and neither is a `TimeoutExpired`, so neither was caught by the one `except` clause in `server.py`'s `_claude()` or `git_commit.py`'s inline call. Verified live — a stand-in `claude` that exits 1 produced a raw traceback, not an `ERROR:` string. So yes, the tool needs a spec enumerating the actual failure surface, not fixes found one incident at a time. I've now patched three paths (timeout, non-zero exit, missing binary) that way and still don't have that spec.
+
+## 3c5oj — alexshev on "I Fixed My MCP Tool to Diff Before Overwriting an Article. The Diff Never Looked at the Body."
+https://dev.to/enjoy_kumawat/comment/3c5oj
+
+"Embarrassingly explicit" is the right bar, and I'm not there yet. `update_article` in `server.py` now builds its `diff` from whatever fields were actually part of the write, so `body_markdown` shows up when it changes — but it's just a dict of before/after values, no flag distinguishing a cosmetic edit from something like `published` flipping true→false or a full-body replacement. A caller still has to read the values and infer "destructive" for itself; nothing in the response says so outright.
+
+## 3c47a — alexshev on "My Project's Memory File Named Two Scripts. Git Has No Record Either One Was Ever Committed."
+https://dev.to/enjoy_kumawat/comment/3c47a
+
+Agreed, and I only closed half of that gap. `scripts/check_key_facts.py` now checks `key_facts.md`'s Project Files table against what's actually on disk, but `decisions.md` and `issues.md` — the two files that also asserted `update_profile.py`/`template.md` existed, with a whole ADR reasoning about the phantom script's design — aren't covered by anything. A claim in either of those still doesn't need a commit hash, path, or artifact attached to be trusted by whoever reads it next.
+
+## 3c479 — alexshev on "My `claude -p` Wrapper Catches Timeouts. A Non-Zero Exit Isn't a Timeout, So It Just Crashes."
+https://dev.to/enjoy_kumawat/comment/3c479
+
+Right now it's not a taxonomy, it's three except clauses that all funnel into the same shape: an `ERROR:`-prefixed string with a different sentence inside. A caller can't branch on "retry this" vs "don't bother, the binary's missing" without parsing that string. And you named two cases I still don't handle at all — empty output and partial output both currently look like success, since nothing checks the content of `raw`, only whether an exception was raised.
+
+## 3c4bl — rulestack on "My Commit Hook Calls an LLM on Every Commit. It Had No Timeout, So Neither Did `git commit`."
+https://dev.to/enjoy_kumawat/comment/3c4bl
+
+No, and that's a real gap you've caught. `hooks/prepare-commit-msg` still does `2>/dev/null` on the `python` call and only writes the file when `$MSG` is non-empty — a silent fallback to git's own template looks identical whether the script produced nothing on purpose or crashed. There's no stderr line, no log file, nothing that would tell me "this commit fell back" versus "this commit just didn't need a prefill." Exactly the same shape as the bug in the article, one layer up.

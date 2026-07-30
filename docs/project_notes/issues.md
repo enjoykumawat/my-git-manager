@@ -2,6 +2,14 @@
 
 ---
 
+### 2026-07-30 - DEV.to: drafted replies for 4 new comments
+
+- **Status**: Completed
+- **Description**: `reply_comments.py pending` returned 4 comments across 4 articles. Drafted all 4: alexshev on the `update_article` diff piece (confirmed the diff still has no destructive-vs-cosmetic flag — just before/after values for whatever changed), alexshev on the phantom-files memory piece (confirmed `check_key_facts.py` only covers `key_facts.md`'s Project Files table, not `decisions.md`/`issues.md`, both of which also asserted the same phantom scripts), alexshev on the `claude -p` wrapper piece (confirmed the three except clauses are still one flat `ERROR:`-prefixed string, no typed taxonomy, and empty/partial output aren't checked at all), rulestack on the commit-hook timeout piece (confirmed `hooks/prepare-commit-msg` still redirects `2>/dev/null` with no log line, so a silent fallback is still indistinguishable from "nothing to prefill").
+- Source: `drafts/comment_replies.md`.
+
+---
+
 ### 2026-07-29 - DEV.to: 1 article published (second run of the day)
 
 - **Status**: Completed (live; verified via HTTP 200 fetch of the URL)
