@@ -3,7 +3,11 @@
 # Skips merge commits, squash, and amend
 [ "$2" = "" ] || exit 0
 
-# Resolve git_commit.py relative to this hooks/ directory
-SCRIPT="$(cd "$(dirname "$0")/.." && pwd)/git_commit.py"
+# Resolve git_commit.py relative to the repo root. $0 is wherever git
+# actually invokes this from — install-hooks.sh copies it into
+# .git/hooks/, which is one directory deeper than this file's own
+# tracked location (<repo>/hooks/), so it takes two ".." to reach the
+# repo root from here, not one. See docs/project_notes/bugs.md 2026-07-31.
+SCRIPT="$(cd "$(dirname "$0")/../.." && pwd)/git_commit.py"
 MSG="$(python "$SCRIPT" 2>/dev/null)" && [ -n "$MSG" ] && printf '%s\n' "$MSG" > "$1"
 exit 0
