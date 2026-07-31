@@ -10,7 +10,13 @@ GITHUB_USERNAME = "enjoykumawat"
 DEV_USERNAME = "enjoy_kumawat"
 
 
-def load_env(path=".env"):
+def load_env(path=None):
+    # Resolve relative to this file, not the process's cwd — an MCP client
+    # spawning this as a subprocess (command+args only, no cwd) can launch it
+    # from anywhere. publish_devto.py already does this; this one didn't.
+    # See docs/project_notes/bugs.md 2026-07-31.
+    if path is None:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
     try:
         with open(path) as f:
             for line in f:
