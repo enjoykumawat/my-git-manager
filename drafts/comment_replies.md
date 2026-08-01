@@ -9,6 +9,41 @@ this file is the last manual step: click link → paste → done.
 
 ---
 
+## 3c8em — mads_hansen_27b33ebfee4c9 on "My MCP Tool's Audit Log Was Built So a Bad Write Would Leave a Trace. The Log Itself Leaves None."
+https://dev.to/enjoy_kumawat/comment/3c8em
+
+The `outcome_unknown` state is the piece I didn't have language for. My actual gap is even earlier than your state machine — the log currently only gets appended after a successful write, so there's no `intent_recorded` step at all, which means a crash between "decided to write" and "wrote the log line" leaves nothing, not even an ambiguous entry. Your crash-point list is a better test plan than what I ran (a happy-path unit test against fake before/after state). I haven't picked between local SQLite and a shared durable sink yet — that's still the open decision I flagged — but "store hashes/revisions, not full bodies" is going to shape whichever one I pick, since right now the entry writes the full before/after field values.
+
+## 3c7og — mads_hansen_27b33ebfee4c9 on "My MCP Server's .env Loader Only Works If You Launch It From One Specific Directory. My MCP Client Doesn't Promise That."
+https://dev.to/enjoy_kumawat/comment/3c7og
+
+Agreed, and the startup validation report is the exact gap I called out at the end and didn't fix — right now a missing key surfaces as a bare `KeyError` from inside `_gh()`/`_dev()` on the first tool call, not at startup, and it names neither variable. Your point about not treating a repo-adjacent `.env` as the production source is fair too, though in this project's case it's honestly the only source — this is a single-developer MCP server launched from one documented Claude Desktop config, not a multi-environment deploy, so the launcher-injection path you're describing would be new infrastructure, not a swap. Still, "fail loud at startup with which var and which source" is worth doing regardless of where the secret ultimately comes from.
+
+## 3c7fg — alexshev on "I Looked for Where My Publishing Agent Needed a State Machine. The State Machine Was Already Live on dev.to."
+https://dev.to/enjoy_kumawat/comment/3c7fg
+
+That's the whole finding, yeah. The tell for me was that every fact I was tempted to track locally (which step, which article, what succeeded) was actually just a stale copy of something dev.to's own API would answer correctly on the next call — so the "state machine" was really just remembering to ask instead of remembering the answer.
+
+## 3c7fi — alexshev on "My Repo Has One Pinned Dependency and Zero pip install Calls. I Didn't Design That for Security."
+https://dev.to/enjoy_kumawat/comment/3c7fi
+
+Right, and I want to be careful not to oversell it as a strategy — it's a side effect of a convenience decision, not a security review I ran. The part I'd actually generalize is narrower: an agent's `pip install <name>` suggestion shouldn't reach a shell unchecked, whether that's because there's no dependency path to exploit at all (my case) or because something's actually verifying the name first (the PyPI check at the end, for projects that do need real dependencies).
+
+## 3c693 — mads_hansen_27b33ebfee4c9 on "My MCP Server's GitHub Helper Function Could POST and DELETE. Every Tool That Called It Only Ever Used GET."
+https://dev.to/enjoy_kumawat/comment/3c693
+
+You're right that the code guard doesn't change what the token itself can do — `GITHUB_TOKEN` is still scoped `repo, user`, full write, and I haven't touched that. The first regression test you describe I do have: the `method != "GET"` check raises before `urlopen` is ever called, verified with a call counter at zero. The second one — request bodies rejected — I don't have, and looking at it now `_gh` would silently attach a JSON body to a GET request if some future call ever passed `data` alongside the default method, which the code-level guard wouldn't catch. Scoping a second, read-only token is the actual fix for the identity layer; adding that test is cheap and I'm doing it next.
+
+## 3c8d0 — fern_eterna on "My MCP Server Holds Two API Keys. Every Tool Call Runs in the Same Process as Both."
+https://dev.to/enjoy_kumawat/comment/3c8d0
+
+To be clear about where this repo actually stands: the article proposes the two-process split, it hasn't been built — `server.py` still loads both `GITHUB_TOKEN` and `DEV_TO_API` into one process at import, one `FastMCP` instance, no broker. On your question, my rough answer would be threat model, not credential count: a third credential earns its own process when a compromise of it has meaningfully different blast radius than what's already isolated — a write-capable exchange key next to a read-only GitHub token isn't "one more of the same," it's a different failure mode entirely. A scoped token inside the existing process is fine when the new credential's worst case looks like the existing ones'. I'll pass on the pitch for now — this repo doesn't have a trading surface to plug it into — but that's a real question and worth thinking through properly rather than answering it in a comment reply.
+
+## 3c8ph — rizzdev on "My MCP Server Holds Two API Keys. Every Tool Call Runs in the Same Process as Both."
+https://dev.to/enjoy_kumawat/comment/3c8ph
+
+That's a real hole in the fix as I sketched it, not a nitpick. The two-process split stops one server's code from ever holding both tokens in the same `os.environ`, but you're right that it does nothing about the client-side tool list — the agent's conversation can still call the GitHub-server tool and the dev.to-server tool back to back in the same turn, and neither the protocol nor the tool call carries anything marking which server a given call's authority came from. So the isolation I described defends against a bug or a compromised process reaching for a credential it wasn't given — it doesn't defend against a single agent session legitimately using both servers' tools in a sequence nobody reviewed. That's a client/orchestration-layer problem, not something a server-side process boundary can fix, and I don't have an answer for it yet.
+
 ## 3bdja — python7427 on "I Already Wrote the Article Fixing This Bug. It Broke Again Anyway."
 https://dev.to/enjoy_kumawat/comment/3bdja
 

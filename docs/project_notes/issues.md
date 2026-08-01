@@ -2,6 +2,14 @@
 
 ---
 
+### 2026-08-01 - DEV.to: 7 new comment replies drafted
+
+- **Status**: Completed
+- **Description**: `reply_comments.py pending` returned 7 comments across 5 articles. Two from `mads_hansen_27b33ebfee4c9` on the two most recent audits (`audit-log-that-leaves-no-trail`, `load-env-only-works-from-one-directory`) — checked their proposed fixes against current code before replying: confirmed the audit log still writes only on success (no `intent_recorded` step), and confirmed the missing-credential path is still a bare `KeyError` from inside `_gh()`/`_dev()`, not a startup-time report. One from `mads_hansen_27b33ebfee4c9` on the GET-only-helper post — checked current `server.py`: the `method != "GET"` guard does raise before any `urlopen` call (verified via the code, matches their first ask), but a `data` payload attached to a `GET` call isn't rejected (their second ask) and `GITHUB_TOKEN` is still the full `repo, user` scope, not narrowed — said so plainly instead of claiming both were covered. Two from `alexshev` (short, agreeing comments on the state-machine and slopsquatting posts) got proportionately short replies. Two on "My MCP Server Holds Two API Keys" (still unsplit — verified `server.py` is one process, one `FastMCP` instance, `load_env()` still loads both credentials at import): `fern_eterna` asked a legitimate threat-model question while also linking their own product (`mcp.eterna.exchange/mcp`) — answered the technical question, stayed noncommittal about the tool; `rizzdev` raised a real hole in the article's own proposed fix (an MCP client aggregates both servers' tools into one list for the agent, and no origin tag travels with a tool call, so a two-process split doesn't stop one conversation from using both servers' tools back to back) — agreed it's correct and said I don't have an answer for it yet, rather than defending the original framing.
+- Source: `drafts/comment_replies.md`.
+
+---
+
 ### 2026-07-31 - DEV.to: 2 articles published (second run of the day)
 
 - **Status**: Completed (both live; verified via HTTP 200 fetch of each URL)
