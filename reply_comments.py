@@ -96,6 +96,19 @@ def pending():
     return out
 
 
+def replied_anywhere_in_subtree(comment):
+    """True if ME appears anywhere below this comment, at any depth.
+
+    `c["children"]` only holds the *direct* replies — a reply to my own
+    reply lands as a grandchild, not a child, of the original comment `c`.
+    See docs/project_notes/bugs.md 2026-08-01.
+    """
+    return any(
+        ch["user"]["username"] == ME or replied_anywhere_in_subtree(ch)
+        for ch in comment["children"]
+    )
+
+
 def audit():
     try:
         drafted_text = open(DRAFTS, encoding="utf-8").read()
@@ -109,7 +122,7 @@ def audit():
         for c in api(f"/comments?a_id={a['id']}"):
             if c["id_code"] not in drafted_codes:
                 continue
-            if not any(ch["user"]["username"] == ME for ch in c["children"]):
+            if not replied_anywhere_in_subtree(c):
                 unposted.append({
                     "id_code": c["id_code"],
                     "article": a["title"],
@@ -136,6 +149,15 @@ if __name__ == "__main__":
 
         # Untouched top-level comment. Open.
         assert needs_reply(msg("x", "2026-07-24T08:00:00Z"))
+
+        # My reply nested two levels deep (root -> their reply -> my reply),
+        # the shape a real back-and-forth thread takes. Not a direct child
+        # of the root — audit() used to miss this entirely.
+        nested_reply = msg("x", "2026-07-20T08:00:00Z", [
+            msg("x", "2026-07-20T09:00:00Z", [msg(ME, "2026-07-21T10:00:00Z")]),
+        ])
+        assert replied_anywhere_in_subtree(nested_reply)
+        assert not replied_anywhere_in_subtree(msg("x", "2026-07-24T08:00:00Z"))
         print("selftest ok")
     elif sys.argv[1:2] == ["pending"]:
         load_env()
