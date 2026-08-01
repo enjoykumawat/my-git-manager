@@ -40,14 +40,23 @@ def _gh(path, method="GET", data=None):
     # one. Enforced, not just true by convention. See bugs.md 2026-07-30.
     if method != "GET":
         raise ValueError(f"_gh is read-only — got method={method!r}")
+    # The old guard only checked the verb — a data payload attached to a GET
+    # call was silently allowed through (didn't escalate the verb, but was
+    # never rejected either). See docs/project_notes/issues.md 2026-08-01
+    # comment-reply audit.
+    if data is not None:
+        raise ValueError("_gh is read-only — got a data payload on a GET call")
     req = urllib.request.Request(f"https://api.github.com{path}", method=method)
     req.add_header("Authorization", f"token {os.environ['GITHUB_TOKEN']}")
     req.add_header("Accept", "application/vnd.github.v3+json")
-    if data:
-        req.add_header("Content-Type", "application/json")
-        req.data = json.dumps(data).encode()
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read())
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        # Previously uncaught — a bad repo name, an expired token, or a rate
+        # limit surfaced as a raw urllib traceback to the MCP client, unlike
+        # every failure path _claude() has (ERROR:-prefixed strings).
+        raise RuntimeError(f"GitHub API error {e.code}: {e.read().decode()[:400]}") from e
 
 
 # dev.to blocks any User-Agent containing "urllib" (case-insensitive) — this
@@ -64,8 +73,15 @@ def _dev(path, method="GET", data=None):
     req.add_header("User-Agent", _DEV_UA)
     if data:
         req.data = json.dumps(data).encode()
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read())
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        # Previously uncaught — a bad article_id, an expired key, or a 422
+        # (e.g. too many tags) surfaced as a raw urllib traceback to the MCP
+        # client instead of a clean error, unlike publish_devto.py's own
+        # `except urllib.error.HTTPError` around the same call shape.
+        raise RuntimeError(f"DEV.to API error {e.code}: {e.read().decode()[:400]}") from e
 
 
 # Bare substrings ("llm", "claude", "anthropic") over-matched: any commit
@@ -175,7 +191,10 @@ def create_article(title: str, body_markdown: str, tags: list[str] = None, publi
     """Create a new DEV.to article. Returns id and url."""
     payload = {"article": {"title": title, "body_markdown": body_markdown, "published": published}}
     if tags:
-        payload["article"]["tags"] = tags
+        # dev.to rejects more than 4 tags. publish_devto.py already truncates
+        # (`[:4]`) before posting; this tool didn't, so a caller passing more
+        # than 4 tags previously sent them all through unmodified.
+        payload["article"]["tags"] = tags[:4]
     result = _dev("/articles", method="POST", data=payload)
     return {"id": result["id"], "url": result.get("url"), "published": result.get("published")}
 
