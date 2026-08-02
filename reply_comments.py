@@ -71,6 +71,30 @@ def needs_reply(comment):
     return latest_message(comment)["user"]["username"] != ME
 
 
+def _pending_entry(comment, drafted_codes):
+    """The dict to surface for this thread, or None if nothing's pending.
+
+    Keys off the *latest* unanswered message's id_code, not the thread
+    root's. A dedup check keyed on the root goes stale the moment a
+    second round happens: the root gets one draft, its id_code lands in
+    drafted_codes, and every later follow-up in that thread — each with
+    its own id_code dev.to assigns it — stays permanently invisible,
+    because the check never looks past the root. See
+    docs/project_notes/bugs.md 2026-08-02.
+    """
+    if not needs_reply(comment):
+        return None
+    latest = latest_message(comment)
+    if latest["id_code"] in drafted_codes:
+        return None
+    return {
+        "id_code": latest["id_code"],
+        "author": latest["user"]["username"],
+        "comment_url": f"https://dev.to/{ME}/comment/{latest['id_code']}",
+        "body": strip_html(latest["body_html"]),
+    }
+
+
 def pending():
     try:
         drafted_text = open(DRAFTS, encoding="utf-8").read()
@@ -82,17 +106,9 @@ def pending():
         if not a["comments_count"]:
             continue
         for c in api(f"/comments?a_id={a['id']}"):
-            if not needs_reply(c):
-                continue
-            if c["id_code"] in drafted_codes:
-                continue
-            out.append({
-                "id_code": c["id_code"],
-                "author": c["user"]["username"],
-                "article": a["title"],
-                "comment_url": f"https://dev.to/{ME}/comment/{c['id_code']}",
-                "body": strip_html(c["body_html"]),
-            })
+            entry = _pending_entry(c, drafted_codes)
+            if entry:
+                out.append({**entry, "article": a["title"]})
     return out
 
 
@@ -133,8 +149,9 @@ def audit():
 
 if __name__ == "__main__":
     if "--selftest" in sys.argv:
-        def msg(user, ts, children=None):
-            return {"user": {"username": user}, "created_at": ts, "children": children or []}
+        def msg(user, ts, children=None, id_code="x", body="body"):
+            return {"user": {"username": user}, "created_at": ts, "children": children or [],
+                    "id_code": id_code, "body_html": f"<p>{body}</p>"}
 
         # I replied once (day 1) — no follow-up since. Handled.
         answered = msg("x", "2026-07-24T08:00:00Z", [msg(ME, "2026-07-25T10:00:00Z")])
@@ -158,6 +175,31 @@ if __name__ == "__main__":
         ])
         assert replied_anywhere_in_subtree(nested_reply)
         assert not replied_anywhere_in_subtree(msg("x", "2026-07-24T08:00:00Z"))
+
+        # Round 1: root comment "aaa" drafted, no reply posted yet — pending.
+        root_round1 = msg("x", "2026-07-24T08:00:00Z", id_code="aaa", body="original question")
+        assert _pending_entry(root_round1, drafted_codes=set())["id_code"] == "aaa"
+
+        # Round 2: I posted my reply on-site, then x followed up with a NEW
+        # comment "bbb" nested under my reply. The old code kept using the
+        # root's id_code ("aaa") for both the dedup check and the returned
+        # body — "aaa" being in drafted_codes made the entire thread
+        # disappear from pending() forever, and even without that, the
+        # surfaced body would have been the stale original question, not
+        # the actual follow-up.
+        root_round2 = msg("x", "2026-07-24T08:00:00Z", id_code="aaa", body="original question",
+                           children=[
+                               msg(ME, "2026-07-25T10:00:00Z", id_code="myreply1", children=[
+                                   msg("x", "2026-07-26T09:00:00Z", id_code="bbb",
+                                       body="follow-up question"),
+                               ]),
+                           ])
+        entry = _pending_entry(root_round2, drafted_codes={"aaa"})
+        assert entry is not None, "follow-up must still surface even though the root was drafted"
+        assert entry["id_code"] == "bbb", entry
+        assert entry["body"] == "follow-up question", entry
+        # And once "bbb" itself has been drafted, the thread correctly drops out.
+        assert _pending_entry(root_round2, drafted_codes={"aaa", "bbb"}) is None
         print("selftest ok")
     elif sys.argv[1:2] == ["pending"]:
         load_env()
