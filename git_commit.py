@@ -20,7 +20,7 @@ SYSTEM = (
 _STRIP_PATTERNS = [
     r"co-authored-by\s*:",
     r"generated (with|by)\s+claude",
-    r"\bclaude code\b",
+    r"\b(with|by|using|via)\s*\[?\s*claude code\]?",
     r"\bwritten by (an )?(ai|llm|claude|chatgpt|copilot)\b",
     r"\bai-generated\b",
     r"🤖",

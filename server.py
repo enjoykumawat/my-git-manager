@@ -91,7 +91,7 @@ def _dev(path, method="GET", data=None):
 _STRIP_PATTERNS = [
     r"co-authored-by\s*:",
     r"generated (with|by)\s+claude",
-    r"\bclaude code\b",
+    r"\b(with|by|using|via)\s*\[?\s*claude code\]?",
     r"\bwritten by (an )?(ai|llm|claude|chatgpt|copilot)\b",
     r"\bai-generated\b",
     r"🤖",
@@ -199,7 +199,13 @@ def create_article(title: str, body_markdown: str, tags: list[str] = None, publi
     return {"id": result["id"], "url": result.get("url"), "published": result.get("published")}
 
 
-_ARTICLE_UPDATE_LOG = "logs/article_updates.jsonl"
+# Resolved relative to this file, not the process's cwd — same reasoning as
+# load_env() above (bugs.md 2026-07-31). An MCP client launches this as a
+# subprocess with no guaranteed cwd, so a bare "logs/..." path scatters this
+# audit log into whatever directory the process happened to start in.
+_ARTICLE_UPDATE_LOG = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "logs", "article_updates.jsonl"
+)
 
 
 def _log_article_update(article_id, before, fields_changed, after):
