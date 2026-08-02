@@ -338,3 +338,18 @@ Right now it's not a taxonomy, it's three except clauses that all funnel into th
 https://dev.to/enjoy_kumawat/comment/3c4bl
 
 No, and that's a real gap you've caught. `hooks/prepare-commit-msg` still does `2>/dev/null` on the `python` call and only writes the file when `$MSG` is non-empty — a silent fallback to git's own template looks identical whether the script produced nothing on purpose or crashed. There's no stderr line, no log file, nothing that would tell me "this commit fell back" versus "this commit just didn't need a prefill." Exactly the same shape as the bug in the article, one layer up.
+
+## 3ca2c — mads_hansen_27b33ebfee4c9 on "My Publish Script Truncates Tags to 4. My MCP Tool That Does the Same Job Never Learned That Rule."
+https://dev.to/enjoy_kumawat/comment/3ca2c
+
+The shared boundary is real — I already found the same drift once in `_gh`/`_dev`'s error handling in this same pass, so a single adapter for the DEV.to payload isn't a hypothetical, it's the second instance of exactly this shape. On the truncation itself: what I shipped this run is the silent `tags[:4]` you're warning against, not the better version — `create_article`'s tags argument has no schema constraint and no accepted/dropped split, it just slices. I picked the type signature (`list[str]`) mainly to keep the diff small next to `publish_devto.py`'s own truncation, not to model the contract properly. `maxItems: 4` plus a validation error, or an explicit `accepted_tags`/`dropped_tags` return, is the right next step, and I don't have property tests for whitespace/duplicates/case/illegal-char/count-boundary cases at all right now — that's a gap, not a "already covered."
+
+## 3ca4o — mads_hansen_27b33ebfee4c9 on "My MCP Server's Two API Helpers Had Zero except Blocks. Every Bad Call Crashed With a Raw urllib Traceback."
+https://dev.to/enjoy_kumawat/comment/3ca4o
+
+Fair, and checking what I actually shipped against that: both `_gh` and `_dev` now do `raise RuntimeError(f"... API error {e.code}: {e.read().decode()[:400]}")` — the full raw body, unfiltered, up to 400 characters, straight into the exception message the MCP client sees. No allowlist, no redaction, no correlation ID, no internal-vs-client split. And you're right that I flattened everything into one exception type instead of preserving semantics — there's no `retryable` flag and no distinction between a GET timeout and a timeout after a PUT, which for `update_article` specifically matters, since that's a mutating call where "unknown outcome" and "safe to retry" are not the same thing. I also haven't tested a malformed-JSON body on a 2xx response — `json.loads(r.read())` would just raise its own uncaught exception in that case, which is the same class of gap this article was about, one level up.
+
+## 3ca3d — eduzsh on "My MCP Server's GitHub Helper Function Could POST and DELETE. Every Tool That Called It Only Ever Used GET."
+https://dev.to/enjoy_kumawat/comment/3ca3d
+
+Just the code-level guard — I haven't touched the credential itself. `GITHUB_TOKEN` is still scoped `repo, user` per this repo's own docs, full write access across everything the account can reach, not narrowed down to what the three read-only tools actually need. So right now `_gh` refusing a non-GET method (and, since this run, refusing a `data` payload on a GET too) is the only thing standing between a future bad call and a real write — the token would honor it either way. Scoping down to a read-only token is the more correct fix and I haven't done it.

@@ -2,6 +2,14 @@
 
 ---
 
+### 2026-08-02 - DEV.to: drafted replies for 3 new comments
+
+- **Status**: Completed
+- **Description**: `reply_comments.py pending` returned 3 comments across 3 articles, all from the two most recent published pieces. Two from `mads_hansen_27b33ebfee4c9` on the tag-truncation twin-drift post and the `_gh`/`_dev` error-handling post — checked both replies against the actual current `server.py` before answering rather than assuming the fixes already covered what was suggested: confirmed `create_article`'s `tags[:4]` is still a silent slice with no schema constraint or accepted/dropped split, and confirmed `_gh`/`_dev`'s `except HTTPError` still forwards the raw response body unredacted (up to 400 chars) with no allowlist, no `retryable` flag, and no typed failure taxonomy — said so plainly instead of overclaiming coverage. One from `eduzsh` on the GET-only-guard post, asking whether the token itself got scoped down or just the code guard added — answered honestly: `GITHUB_TOKEN` is still full `repo, user` scope per `key_facts.md`, unchanged.
+- Source: `drafts/comment_replies.md`.
+
+---
+
 ### 2026-08-01 - DEV.to: 2 articles published (second run of the day)
 
 - **Status**: Completed (both live; verified via HTTP 200 fetch of each URL)
