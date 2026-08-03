@@ -47,6 +47,30 @@ def load_env(path):
             os.environ.setdefault(k, v.strip().strip('"').strip("'"))
 
 
+def already_published(key, title):
+    """URL of an already-live article with this exact title, or None.
+
+    A POST can succeed server-side and still leave the client with nothing
+    but a timeout/URLError (the ack never arrives) — the failure mode this
+    script's own except clauses were hardened for. Without this check, a
+    retry (this task's own "if 429, wait and retry" step, or any agent-level
+    retry after an ambiguous failure) blindly re-POSTs and creates a second
+    live article for one intended publish. See docs/project_notes/issues.md
+    2026-08-03.
+    """
+    req = urllib.request.Request("https://dev.to/api/articles/me/published?per_page=30")
+    req.add_header("api-key", key)
+    req.add_header("User-Agent", "Mozilla/5.0")
+    try:
+        articles = json.load(urllib.request.urlopen(req, timeout=30))
+    except (urllib.error.HTTPError, urllib.error.URLError):
+        return None  # can't verify — fall through to the normal publish attempt
+    for a in articles:
+        if a.get("title") == title:
+            return a.get("url")
+    return None
+
+
 def main(md_path):
     here = os.path.dirname(os.path.abspath(__file__))
     load_env(os.path.join(here, ".env"))
@@ -61,6 +85,12 @@ def main(md_path):
 
     tags = [t.strip() for t in meta.get("tags", "").replace(",", " ").split() if t.strip()][:4]
     published = meta.get("published", "false").lower() in ("true", "1", "yes")
+
+    if published:
+        existing = already_published(key, title)
+        if existing:
+            print("ALREADY PUBLISHED (skipped duplicate) ->", existing)
+            return {"url": existing, "already_published": True}
 
     payload = {"article": {"title": title, "published": published,
                            "body_markdown": body, "tags": tags}}

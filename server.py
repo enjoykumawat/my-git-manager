@@ -189,6 +189,17 @@ def list_articles(per_page: int = 10) -> list:
 @mcp.tool()
 def create_article(title: str, body_markdown: str, tags: list[str] = None, published: bool = False) -> dict:
     """Create a new DEV.to article. Returns id and url."""
+    if published:
+        # A POST can succeed server-side and still leave the caller with
+        # nothing but a timeout/network error — the exact failure shape
+        # _dev()'s own except clause was hardened for. Without this check,
+        # an MCP client retrying the same tool call after an ambiguous
+        # error blindly creates a second live article for one intended
+        # publish. Mirrors publish_devto.py's own fix for the same gap.
+        # See docs/project_notes/issues.md 2026-08-03.
+        for a in _dev("/articles/me/published?per_page=30"):
+            if a.get("title") == title:
+                return {"id": a["id"], "url": a.get("url"), "published": True, "already_published": True}
     payload = {"article": {"title": title, "body_markdown": body_markdown, "published": published}}
     if tags:
         # dev.to rejects more than 4 tags. publish_devto.py already truncates
