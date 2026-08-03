@@ -2,6 +2,14 @@
 
 ---
 
+### 2026-08-03 - DEV.to: drafted replies for 9 new comments
+
+- **Status**: Completed
+- **Description**: `reply_comments.py pending` returned 9 comments across 6 articles. Checked each proposed fix/question against current code before replying rather than assuming coverage: confirmed `_pending_entry()` (fixed 2026-08-02) now keys off `latest_message()`, matching komo's thread-cursor suggestion in spirit though without a persisted cursor; confirmed the `_gh`/`_dev` error path is still a formatted `RuntimeError` string with no typed envelope or `retryable` flag (alexshev, `3cak5`); confirmed `create_article`'s `tags[:4]` and `publish_devto.py`'s tag truncation are still two independent literals, no shared normalizer (alexshev, `3caka`); re-grepped every `.env`/log-path load across `server.py`, `git_commit.py`, `reply_comments.py`, `publish_devto.py` for talha_ramzan and alexshev's path-sweep questions (`3caga`, `3cak3`) — all resolve off `__file__` now, but confirmed there's still no lint/pre-commit check enforcing that pattern going forward, just a manual grep run this session; confirmed `audit()`'s nested-reply fix (2026-08-01) is live and matches alexshev's "verify by full tree traversal" ask (`3cakd`); confirmed `CLAUDE.md`'s tracked-and-gitignored state is still an unfixed, deliberately-left dormant trap (alexshev, `3cakh`). mdfold's attribution-as-metadata suggestion (`3ca9n`) and talha_ramzan's blocklist-testing reflection (`3cag8`) don't map to an open code question — answered directly, no repo state to verify.
+- Source: `drafts/comment_replies.md`.
+
+---
+
 ### 2026-08-02 - DEV.to: 1 article published (second run of the day) — quality bar, not forcing more
 
 - **Status**: Completed (live; verified via HTTP 200 fetch of the URL)
