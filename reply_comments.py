@@ -18,7 +18,7 @@ from ME — the file's growth is otherwise invisible to the pipeline itself.
 
 Reads DEV_TO_API from .env next to this script.
 """
-import json, os, re, sys, urllib.request
+import json, os, re, sys, urllib.error, urllib.request
 
 ME = "enjoy_kumawat"
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -44,7 +44,10 @@ def api(path):
     # just the literal default — see docs/project_notes/bugs.md 2026-07-25.
     # Any string avoiding that substring works; it doesn't need to look like a browser.
     req.add_header("User-Agent", "Mozilla/5.0")
-    return json.load(urllib.request.urlopen(req, timeout=30))
+    try:
+        return json.load(urllib.request.urlopen(req, timeout=30))
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"dev.to API error {e.code}: {e.read().decode()[:400]}") from e
 
 
 def strip_html(h):

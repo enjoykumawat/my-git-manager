@@ -76,6 +76,8 @@ def main(md_path):
         r = json.load(urllib.request.urlopen(req, timeout=30))
     except urllib.error.HTTPError as e:
         sys.exit(f"HTTP {e.code}: {e.read().decode()[:400]}")
+    except urllib.error.URLError as e:
+        sys.exit(f"URLError: {e.reason}")
     print(("PUBLISHED" if published else "DRAFTED"), "->", r.get("url"))
     return r
 
