@@ -35,6 +35,15 @@ if git merge-base --is-ancestor main "$head_sha" 2>/dev/null; then
     git checkout main
     git merge --ff-only "$head_sha"
     echo "sync-main: reattached and fast-forwarded main to $head_sha"
+elif git merge-base --is-ancestor "$head_sha" main 2>/dev/null; then
+    # head_sha is BEHIND main, not ahead — the opposite of the case above,
+    # but just as safe: every commit at head_sha already exists on main, so
+    # checking out main loses nothing. Treating this like a genuine
+    # divergence (the old else branch) blocked automatic recovery for a
+    # case where none of the caller's own instructions are needed. See
+    # docs/project_notes/bugs.md 2026-08-04.
+    git checkout main
+    echo "sync-main: HEAD detached at $head_sha was already contained in main; reattached to main ($(git rev-parse main))"
 else
     echo "sync-main: HEAD detached at $head_sha, not a descendant of main — needs manual review" >&2
     exit 1
