@@ -398,3 +398,33 @@ That's exactly what was broken and how I fixed it — `audit()` used to check on
 https://dev.to/enjoy_kumawat/comment/3cakh
 
 Agreed, and I left it that way on purpose — it's a live but currently dormant trap, not something I patched. `CLAUDE.md` got added to the index and to `.gitignore` in the same original commit, so it's tracked today and nothing's broken yet, but the moment anyone does the obvious thing (`git rm --cached` to fix the ignore, or recreates the file after a delete) it becomes untracked-and-ignored with no error to catch it. I didn't touch the `.gitignore` line myself since this is the user's own instructions file and changing its tracked status is their call, not a bug with an unambiguous one-line fix. Your point about future automation is the sharper risk though — a script reading "gitignored" as "safe to regenerate freely" would be wrong here in a way that's easy to miss.
+
+## 3cc88 — alexshev on "My Publish Script Has a Retry Instruction in Its Own Task Prompt. It Had No Guard Against That Retry Creating a Duplicate."
+https://dev.to/enjoy_kumawat/comment/3cc88
+
+Right, and DEV.to's API doesn't give me a stable key to make the write idempotent server-side — no `Idempotency-Key` header, no client-supplied id it'll dedupe against. What I built instead is a duplicate preflight: before POSTing, `already_published()` checks the last 30 published articles by title and skips the POST if it's already there. It's real that this is title-based and windowed to 30, not a proper operation key — a retry outside that window, or a genuine title collision, wouldn't be caught — but it closes the actual failure I could reproduce (a timeout after the write had already landed server-side).
+
+## 3cbf8 — talha_ramzan_3878156fea8c on "My Publish Script's except HTTPError Looked Complete. It Doesn't Catch the One Failure Its Own Timeout Guarantees."
+https://dev.to/enjoy_kumawat/comment/3cbf8
+
+The "it has error handling" point is the one that stuck with me writing this — a try/except reads as done the moment it exists, and I'd walked past this exact line a dozen times auditing other parts of the same script for other things. Since your comment (and the one below it about a real boundary sweep), I went and grepped every `urlopen` call left in the repo: `reply_comments.py`'s own `api()` and both of `server.py`'s helpers (`_gh`, `_dev`) still only catch `HTTPError`, not `URLError` — the identical gap I'd just fixed here. So the pattern wasn't contained to the one file I wrote this article about, it was just contained to whichever file I'd looked at most recently.
+
+## 3cc89 — alexshev on "My Publish Script's except HTTPError Looked Complete. It Doesn't Catch the One Failure Its Own Timeout Guarantees."
+https://dev.to/enjoy_kumawat/comment/3cc89
+
+Agreed, and that's actually the gap I flagged but didn't close in the same pass — right now both branches just call `sys.exit(1)` with different text; a 429 (retry) and a 422 (don't bother) are indistinguishable to anything downstream except by string-matching stderr. Reporting a timeout differently from a real HTTP response with a body was the fix I shipped here; giving every failure a distinct, checkable shape instead of prefixed prose is the bigger redesign I logged and deliberately left open.
+
+## 3cbfa — talha_ramzan_3878156fea8c on "My Comment-Reply Script's Only Network Call Had Zero except Blocks. I'd Already Fixed This Exact Bug in a Different File."
+https://dev.to/enjoy_kumawat/comment/3cbfa
+
+That admission held up, unfortunately — went and grepped every `urlopen` call in the repo just now. `reply_comments.py`'s own `api()`, the one this article just fixed from zero except clauses to one, still only catches `HTTPError`, not `URLError` — same narrower-except shape, one bug behind the one I fixed. `server.py`'s `_gh` and `_dev` are the same: both wrap `urlopen` in `try/except urllib.error.HTTPError` with nothing for timeouts or connection failures. The fourth-copy search I said I hadn't done — turns out there were three.
+
+## 3cc87 — alexshev on "My Comment-Reply Script's Only Network Call Had Zero except Blocks. I'd Already Fixed This Exact Bug in a Different File."
+https://dev.to/enjoy_kumawat/comment/3cc87
+
+Did the network-call slice of that sweep just now, prompted by this thread. Every `urlopen` call left in the repo: `reply_comments.py`'s `api()` (the fix this article's about) and `server.py`'s `_gh`/`_dev` all still only catch `HTTPError`, not `URLError` — the exact gap `publish_devto.py` had until a few days ago. Haven't gotten to file writes or retry paths yet, that part of the sweep is still open.
+
+## 3cc8g — alexshev on "My Comment-Reply Queue Draft One Reply to a Thread and It Went Deaf to Every Follow-Up After That"
+https://dev.to/enjoy_kumawat/comment/3cc8g
+
+That's the shape I landed on, though more by accident than design. `needs_reply()`/`latest_message()` already tracked freshness at the message level, not the thread — the bug this article's about was that `pending()` computed the right freshness answer and then keyed its dedup check and its returned content off the thread root anyway. Nothing here is stored state; every run re-walks the live tree and asks "who spoke last, and is that specific message drafted yet," so a follow-up after a reply just becomes pending again on its own, no explicit state machine required.

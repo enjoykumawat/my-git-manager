@@ -564,3 +564,9 @@
 ### 2026-06-21 - Deleted oh-my-codex repo
 - **Status**: Completed (manual)
 - **Description**: Deleted `enjoykumawat/oh-my-codex` via GitHub Settings UI (API token lacked delete_repo scope)
+
+### 2026-08-04 - DEV.to: 6 comment replies drafted
+
+- **Status**: Completed (drafted only — paste manually per `drafts/comment_replies.md`'s own note)
+- **Description**: `reply_comments.py pending` returned 6 unanswered top-level comments across 3 articles: "My Publish Script Has a Retry Instruction in Its Own Task Prompt..." (1), "My Publish Script's except HTTPError Looked Complete..." (2), "My Comment-Reply Script's Only Network Call Had Zero except Blocks..." (2), "My Comment-Reply Queue Draft One Reply to a Thread and It Went Deaf..." (1). Two comments (talha_ramzan_3878156fea8c on `3cbfa`/alexshev on `3cc87`) both flagged the still-open "search for a fourth copy of the missing-except-clause bug" from that article — checked instead of deflecting: grepped every `urlopen` call site in the repo. Found the gap is still live in three places, not zero: `reply_comments.py`'s own `api()` (fixed from zero except clauses to one this week) and `server.py`'s `_gh`/`_dev` all still catch only `HTTPError`, not `URLError` — the identical narrower-except shape `publish_devto.py` itself had until a few days ago. Not fixed in this run (drafting-only task); noted honestly in both replies as an open, verified gap.
+- **Files**: `drafts/comment_replies.md` (+6 entries)
