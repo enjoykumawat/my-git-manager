@@ -67,7 +67,7 @@
 
 ---
 
-### ADR-005: `drafts/` stays local-only; the log entry + live URL is the permanent record (2026-07-18)
+### ADR-005: `drafts/` stays local-only; the log entry + live URL is the permanent record (2026-07-18) — **superseded in practice, see correction below (2026-08-04)**
 
 **Context:**
 - The scheduled publishing task's instructions say to commit `drafts/<slug>.md` alongside the `issues.md` log entry
@@ -81,7 +81,14 @@
 - Force-add drafts going forward (`git add -f`) → rejected: would silently accumulate hundreds of full-article markdown files into repo history over months for a blog-publishing side task, with no reader (the live URL already is the canonical published version)
 - Un-ignore `drafts/` entirely → rejected, same reason
 
-**Consequences:**
+**Consequences (as originally believed):**
 - ✅ Repo stays small; no duplicate copies of published content drifting from the live version
 - ✅ Matches what has actually been happening for 30+ articles, now documented instead of accidental
 - ❌ A draft's exact pre-publish markdown isn't recoverable after the fact — only the log's rationale and the live (post-DEV.to-formatting) article are
+
+**Correction (2026-08-04):** This ADR's stated exception was never actually what `.gitignore` implements. The real pattern is:
+```
+drafts/*
+!drafts/*.md
+```
+`!drafts/*.md` un-ignores *every* `.md` file in `drafts/`, not just `comment_replies.md` — the "exception" section above describes an intent the pattern never encoded. `git add -A` on any new `drafts/<slug>.md` article draft stages it cleanly; nothing rejects it. This wasn't caught for weeks because "commit drafts + the log" kept "succeeding" either way — silently no-op if a stricter pattern had actually been in place, silently including drafts under the pattern that's actually there — and no run's log entry was ever checked against `git show --stat` on the resulting commit. Checked recent history: starting around the 2026-08-01 run (commit `c933c0a` onward), article drafts *have* been getting committed alongside each fix, matching what the pattern actually does, not what this ADR describes. Updated decision: stop treating this as accidental. `drafts/*.md` (article drafts and `comment_replies.md` alike) are tracked and committed going forward — this matches both the actual `.gitignore` pattern and the actual practice of the last several days of runs, and gives a draft's exact pre-publish markdown a recoverable history the original ADR assumed was permanently lost. See `bugs.md` 2026-08-04.
