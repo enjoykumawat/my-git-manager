@@ -31,6 +31,7 @@
 | `scripts/sync-main.sh` | Fast-forwards a detached-HEAD session back onto `origin/main`; safe to run unconditionally at the start of any git-writing session (`bugs.md` 2026-07-18) |
 | `hooks/prepare-commit-msg` | Git hook: captures `git_commit.py`'s output before writing it to the commit editor, so a failed AI call leaves git's own template alone instead of wiping it (`bugs.md` 2026-07-23) |
 | `scripts/check_key_facts.py` | Flags any top-level/`scripts/`/`hooks/` script not referenced anywhere in this table — added 2026-07-25 after this table itself went stale (see `issues.md` same date) |
+| `scripts/list_all_published_titles.py` | Paginates `/api/articles/me/published` to print every title this account has ever published, not just the first `per_page` page — the scheduled publishing task's own Step 1 URL returns only the most recent page and Step 2 treats it as "the full list" (`bugs.md` 2026-08-04) |
 | `scripts/install-hooks.sh` | Copies `hooks/*` into `.git/hooks/` for the current clone — `hooks/` alone has no effect on git; `core.hooksPath`/`.git/hooks/` are machine-local and don't survive a fresh clone or container checkout. Run once per fresh clone/container before relying on `hooks/prepare-commit-msg` (`bugs.md` 2026-07-26) |
 | `requirements.txt` | Only dep: `mcp[cli]` |
 | `.env` | API keys — never committed |
