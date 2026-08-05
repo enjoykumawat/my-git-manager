@@ -90,7 +90,7 @@ def generate_commit_message(diff: str) -> str:
     return subprocess.check_output(["claude", "-p", full], text=True).strip()
 ```
 
-Full project: [github.com/enjoy-kumawat/my-git-manager](https://github.com/enjoy-kumawat/my-git-manager)
+Full project: [github.com/enjoykumawat/my-git-manager](https://github.com/enjoykumawat/my-git-manager)
 
 ---
 

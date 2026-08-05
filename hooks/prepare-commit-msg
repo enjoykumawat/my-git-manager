@@ -3,18 +3,40 @@
 # Skips merge commits, squash, and amend
 [ "$2" = "" ] || exit 0
 
-# Resolve git_commit.py via the repo root, not via $0's own location.
-# The 2026-07-31 fix computed this as `dirname "$0")/../..`, tuned for
-# exactly one install method (scripts/install-hooks.sh copying this file
-# into .git/hooks/, one level deeper than its tracked home in <repo>/hooks/).
-# README.md documents a second method — `git config core.hooksPath
-# <repo>/hooks` — that invokes this file straight from its tracked
-# location, one level shallower, so the same "../.." overshoots by one
-# directory there and silently can't find git_commit.py. `git
-# rev-parse --show-toplevel` finds the repo root directly, independent of
-# where git happened to invoke this file from, so it's correct under both
-# documented install methods (and any other). See docs/project_notes/bugs.md
-# 2026-08-04.
-SCRIPT="$(git rev-parse --show-toplevel)/git_commit.py"
+# Resolve git_commit.py's location. The 2026-08-04 fix switched this to
+# `git rev-parse --show-toplevel` ("the repo root, independent of where git
+# invoked this file from"), verified against core.hooksPath pointed at
+# THIS repo's own tracked hooks/ dir. But README.md's "recommended"
+# install method sets core.hooksPath *globally* ("Apply to all repos on
+# this machine") — and --show-toplevel resolves to whichever repo you
+# happen to be committing in, not the repo that owns git_commit.py. Commit
+# in any other repo on the machine and this silently resolves to
+# <other-repo>/git_commit.py, which doesn't exist — same silent empty-
+# message failure the 2026-08-04 fix was supposed to have closed, just for
+# the other install method's own headline use case. See
+# docs/project_notes/bugs.md 2026-08-05.
+#
+# git always invokes a hook with $0 pointing at its own physical location,
+# so branch on where that location sits instead of guessing one arithmetic
+# for both methods:
+#   - $0 under some repo's .git/hooks/  -> installed by install-hooks.sh's
+#     copy step; git_commit.py lives at THAT repo's root (2 levels up),
+#     which --show-toplevel correctly gives since git always runs hooks
+#     with cwd = the repo being committed in, and this install method only
+#     ever targets one repo at a time (its own clone).
+#   - $0 elsewhere (a tracked hooks/ dir reached via core.hooksPath) -> the
+#     global "all repos on this machine" method; $0 is always this
+#     project's own hooks/ dir regardless of which repo is being committed
+#     in, so git_commit.py is 1 level up from $0's own directory, not from
+#     whatever repo the commit happens to be in.
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+case "$HOOK_DIR" in
+    */.git/hooks)
+        SCRIPT="$(git rev-parse --show-toplevel)/git_commit.py"
+        ;;
+    *)
+        SCRIPT="$(cd "$HOOK_DIR/.." && pwd)/git_commit.py"
+        ;;
+esac
 MSG="$(python "$SCRIPT" 2>/dev/null)" && [ -n "$MSG" ] && printf '%s\n' "$MSG" > "$1"
 exit 0
