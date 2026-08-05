@@ -11,6 +11,17 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 KEY_FACTS = ROOT / "docs" / "project_notes" / "key_facts.md"
+DECISIONS = ROOT / "docs" / "project_notes" / "decisions.md"
+# issues.md is deliberately excluded: it's an append-only historical log
+# (ADR-005), so a past entry naming a since-removed file is a legitimate
+# record, not stale-and-currently-asserted fact. decisions.md is not
+# append-only in that sense — an ADR's prose is presented as still true.
+DECISIONS_SEARCH_DIRS = (ROOT, ROOT / "docs" / "project_notes", ROOT / "drafts",
+                          ROOT / "scripts", ROOT / "hooks")
+# Named only inside ADR-001's 2026-08-05 correction, to explain that they were
+# never real — not asserted as current fact, so not phantom-in-the-flagged sense.
+# Same shape as key_facts.md's .env exception below.
+DECISIONS_KNOWN_HISTORICAL = {"update_profile.py", "template.md"}
 # hooks/ files are git hooks — named by git, conventionally no extension —
 # so they're tracked unconditionally instead of by suffix like scripts/ and root.
 TRACKED = [(ROOT, (".py", ".sh")), (ROOT / "scripts", (".py", ".sh")), (ROOT / "hooks", None)]
@@ -43,6 +54,23 @@ def project_files_table_rows():
     return re.findall(r"^\| `([^`]+)` \|", section, re.M)
 
 
+def decisions_referenced_files():
+    """Filename-shaped tokens in decisions.md's prose. Unlike key_facts.md's
+    Project Files table, decisions.md doesn't consistently backtick
+    filenames (e.g. ADR-001's title, "same pattern as update_profile.py"),
+    so this scans raw text for a name.ext shape instead of parsing backticks."""
+    text = DECISIONS.read_text()
+    return sorted(set(re.findall(r"\b[\w-]+\.(?:py|sh|md)\b", text)))
+
+
+def decisions_phantom_files():
+    def exists_anywhere(name):
+        return any((d / name).exists() for d in DECISIONS_SEARCH_DIRS)
+
+    return [f for f in decisions_referenced_files()
+            if f not in DECISIONS_KNOWN_HISTORICAL and not exists_anywhere(f)]
+
+
 def main():
     ok = True
     missing = [f for f in real_files() if f not in documented_files()]
@@ -58,6 +86,12 @@ def main():
         ok = False
         print("key_facts.md's Project Files table documents files that don't exist on disk:")
         for f in phantom:
+            print(f"  - {f}")
+    decisions_missing = decisions_phantom_files()
+    if decisions_missing:
+        ok = False
+        print("decisions.md references files that don't exist anywhere in the repo:")
+        for f in decisions_missing:
             print(f"  - {f}")
     if ok:
         print("key_facts.md is in sync with repo scripts.")

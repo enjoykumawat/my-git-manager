@@ -2,7 +2,7 @@
 
 ---
 
-### ADR-001: stdlib-only for update_profile.py (2026-06-21)
+### ADR-001: stdlib-only for update_profile.py (2026-06-21) — **update_profile.py never existed in this repo, see correction below (2026-08-05)**
 
 **Context:**
 - Script needs to run on Windows without pip dependencies
@@ -15,6 +15,8 @@
 - `httpx` → rejected (same reason)
 
 **Consequences:** Zero-dependency script; slight verbosity in HTTP call setup.
+
+**Correction (2026-08-05):** `bugs.md` 2026-07-28 already proved `update_profile.py` and `template.md` were never committed to this repo in any commit (`git rev-list --all --count` is non-trivial, non-shallow, `git log --all --diff-filter=A -- update_profile.py template.md` is empty) and removed both from `key_facts.md`'s Project Files table. This ADR was never updated to match — it kept reasoning about a script's design as if it were a real, applicable part of the codebase, and `scripts/check_key_facts.py`'s phantom-file check (built the same day, for the same bug) only ever scanned `key_facts.md`, not `decisions.md`. The underlying decision this ADR actually documents (stdlib-only HTTP calls, no `requests`/`httpx`) is real and still in force — it lives on in `publish_devto.py`, `reply_comments.py`, and `server.py`'s shared `urllib`-only pattern (see ADR-002) — but its title and Context/Decision text should be read as describing that pattern in the abstract, not a script this repo ever shipped. `scripts/check_key_facts.py` now also scans `decisions.md` for phantom file references.
 
 ---
 
