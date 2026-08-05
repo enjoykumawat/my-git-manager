@@ -2,6 +2,11 @@
 
 ---
 
+### 2026-08-05 - DEV.to: 2 comment replies drafted
+- **Status**: Completed (drafted only — paste manually per `drafts/comment_replies.md`'s own note)
+- **Description**: `reply_comments.py pending` returned 2 unanswered top-level comments: mateo_ruiz_6992b1fce47843 on "My Hook's Path Fix Passed Its Own Test. It Broke My README's Other Install Method." (`3cd59`), eduzsh on "My MCP Server's GitHub Helper Function Could POST and DELETE. Every Tool That Called It Only Ever Used GET." (`3cdi8`). Verified the second reply's claim against current `server.py`: `_gh()` does now raise on non-GET and on a GET-with-data payload, so the "enforced, not just true by convention" line is accurate as of this run.
+- **Files**: `drafts/comment_replies.md` (+2 entries)
+
 ### 2026-08-04 - DEV.to: 1 article published (second run of the day) — quality bar, not forcing more
 
 - **Status**: Completed (live; verified via HTTP 200 fetch of the URL)

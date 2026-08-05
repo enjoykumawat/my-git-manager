@@ -369,6 +369,16 @@ https://dev.to/enjoy_kumawat/comment/3cag8
 
 That's a fair and pretty complete restatement of it back to me. The one detail I'd add: the reason `\bclaude code\b` wasn't dead weight next to `generated (with|by)\s+claude` is that the real footer this repo strips is markdown-bracketed — `Generated with [Claude Code](url)` — and the no-punctuation pattern doesn't match across a `[`. I almost deleted it on exactly the "looks redundant" read before testing it against that literal string. Testing the blocklist in both directions is the part I'd underline too; I only wrote the benign-vocabulary test set after the bug had already shipped once.
 
+## 3cd59 — mateo_ruiz_6992b1fce47843 on "My Hook's Path Fix Passed Its Own Test. It Broke My README's Other Install Method."
+https://dev.to/enjoy_kumawat/comment/3cd59
+
+Right, `git rev-parse --show-toplevel` was the fix precisely because it stopped caring how deep the hook was invoked from — the two-`..` arithmetic before it was tuned to one install method (`scripts/install-hooks.sh` copying into `.git/hooks/`) and silently wrong for the README's other one (`core.hooksPath` pointing straight at the tracked `hooks/` dir). And yeah, the regression suite gap you're describing is real: I only caught the second install method because someone happened to test it by hand, not because anything in the test suite exercises it. Adding both documented install paths to whatever passes for a test here is the honest next step, not done yet.
+
+## 3cdi8 — eduzsh on "My MCP Server's GitHub Helper Function Could POST and DELETE. Every Tool That Called It Only Ever Used GET."
+https://dev.to/enjoy_kumawat/comment/3cdi8
+
+Agreed, and that's the actual fix now — `_gh()` raises `ValueError` if it's ever called with anything other than `method="GET"`, and a second guard rejects a data payload even on a GET call. It's enforced in the function itself, not just true by convention because no current tool happens to call it with POST/DELETE. The token behind it is still scoped `repo, user` (full write access), so that guard is the only thing standing between "no tool uses write" and "a stray write happens."
+
 ## 3caga — talha_ramzan_3878156fea8c on "My MCP Server Fixed a CWD-Relative Path Bug Once. A Second Hardcoded Relative Path Sat Two Functions Below It, Unfixed."
 https://dev.to/enjoy_kumawat/comment/3caga
 
