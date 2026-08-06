@@ -17,11 +17,25 @@ import json, os, sys, urllib.request, urllib.error
 
 
 def parse(text):
-    """Split '---' frontmatter from body. Returns (meta_dict, body_str)."""
+    """Split '---' frontmatter from body. Returns (meta_dict, body_str).
+
+    Raises ValueError if a '---' frontmatter block is opened but never
+    closed with a second '---' delimiter (e.g. truncated LLM-generated
+    draft output, or a hand-edited draft missing the closing fence) — the
+    unguarded 3-way unpack this replaced raised a bare, unexplained
+    `ValueError: not enough values to unpack` straight out of parse(), the
+    only error path in this script that didn't get a clean ERROR: message.
+    See docs/project_notes/bugs.md 2026-08-06.
+    """
     meta = {}
     body = text
     if text.lstrip().startswith("---"):
-        _, fm, body = text.lstrip().split("---", 2)
+        parts = text.lstrip().split("---", 2)
+        if len(parts) < 3:
+            raise ValueError(
+                "frontmatter opened with '---' but never closed with a second '---' delimiter"
+            )
+        _, fm, body = parts
         for line in fm.strip().splitlines():
             if ":" in line:
                 k, v = line.split(":", 1)
@@ -76,7 +90,10 @@ def main(md_path):
     load_env(os.path.join(here, ".env"))
     key = os.environ["DEV_TO_API"]
 
-    meta, body = parse(open(md_path, encoding="utf-8").read())
+    try:
+        meta, body = parse(open(md_path, encoding="utf-8").read())
+    except ValueError as e:
+        sys.exit(f"ERROR: {e}")
     title = meta.get("title")
     if not title:
         sys.exit("ERROR: no title (frontmatter `title:` or leading `# H1`)")

@@ -47,7 +47,19 @@ if "--selftest" in sys.argv:
     print("selftest ok")
     raise SystemExit(0)
 
-diff = subprocess.check_output(["git", "diff", "--staged"], text=True)
+try:
+    # The 2026-07-23 fix's own writeup claimed both subprocess calls in this
+    # file got a timeout ("neither ... had a timeout ... Fixed both"), but
+    # the actual commit (2f9d850) only added timeout= to the claude -p call
+    # below. This call — `git diff --staged`, which can hang on a held
+    # index.lock or a slow external diff/textconv driver — was left with
+    # none, so the "hung process hangs git commit indefinitely" bug the fix
+    # claimed to close was still reachable through the call one line above
+    # it. See docs/project_notes/bugs.md 2026-08-06.
+    diff = subprocess.check_output(["git", "diff", "--staged"], text=True, timeout=20)
+except subprocess.TimeoutExpired:
+    print("git diff --staged timed out after 20s", file=sys.stderr)
+    raise SystemExit(1)
 if not diff.strip():
     print("Nothing staged. Run `git add` first.")
     raise SystemExit(1)
