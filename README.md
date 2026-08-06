@@ -36,7 +36,7 @@ No `ANTHROPIC_API_KEY` needed — Claude calls go through `claude -p` using your
 | Tool | Description |
 |------|-------------|
 | `get_github_profile` | Fetch public profile (bio, repos, followers) for `enjoykumawat` |
-| `list_repos` | List public repos; sort by `updated`, `stars`, or `forks` |
+| `list_repos` | List public repos; sort by `updated`, `created`, `pushed`, `full_name` (GitHub API), or `stars`/`forks` (sorted client-side — GitHub's endpoint doesn't support those server-side) |
 | `get_repo_stats` | Stars, forks, watchers, open issues for a given repo |
 
 ### DEV.to

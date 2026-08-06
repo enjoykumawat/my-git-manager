@@ -134,10 +134,27 @@ def get_github_profile() -> dict:
     }
 
 
+# GitHub's `GET /users/{username}/repos` only accepts sort=created|updated|pushed|full_name
+# (docs.github.com REST API, "List repositories for a user") — stars/forks aren't a
+# server-side sort on this endpoint, unlike the separate /search/repositories endpoint.
+# This tool used to pass sort straight through unvalidated: sort="stars" silently fell
+# back to GitHub's own default with no error, nothing telling the caller it was ignored.
+_REPO_API_SORTS = {"created", "updated", "pushed", "full_name"}
+_REPO_CLIENT_SORT_KEYS = {"stars": "stargazers_count", "forks": "forks_count"}
+
+
 @mcp.tool()
 def list_repos(sort: str = "updated", limit: int = 10) -> list:
-    """List public repos. sort: updated|stars|forks. limit: 1-100."""
-    repos = _gh(f"/users/{GITHUB_USERNAME}/repos?sort={sort}&per_page={min(limit, 100)}")
+    """List public repos. sort: updated|created|pushed|full_name|stars|forks. limit: 1-100."""
+    api_sort = sort if sort in _REPO_API_SORTS else "updated"
+    # stars/forks need every repo pulled before ranking, not just `limit` of them,
+    # or truncation happens before the sort that was supposed to decide it.
+    fetch_limit = 100 if sort in _REPO_CLIENT_SORT_KEYS else min(limit, 100)
+    repos = _gh(f"/users/{GITHUB_USERNAME}/repos?sort={api_sort}&per_page={fetch_limit}")
+    if sort in _REPO_CLIENT_SORT_KEYS:
+        repos = sorted(repos, key=lambda r: r[_REPO_CLIENT_SORT_KEYS[sort]], reverse=True)[:limit]
+    else:
+        repos = repos[:limit]
     return [
         {
             "name": r["name"],
