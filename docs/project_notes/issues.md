@@ -2,6 +2,14 @@
 
 ---
 
+### 2026-08-06 - DEV.to: 1 comment reply drafted
+
+- **Status**: Completed (drafted only — paste manually per `drafts/comment_replies.md`'s own note)
+- **Description**: `reply_comments.py pending` returned 1 unanswered top-level comment: alexshev on "My Docs-Drift Checker Fixed One File. Its Sibling File Had the Identical Bug for 8 Days, Flagged and Ignored." — making the general point that detection isn't ownership, a checker can flag drift perfectly and still fail operationally if nobody owns closing the loop. Replied with the concrete case behind the article: the `decisions.md` phantom-file gap was named in this log on 2026-07-30 and sat unfixed for six-plus days until the 2026-08-05 audit turned it into an actual fix, and the checker still has no mechanism to resurface a flagged-but-unfixed gap on its own — said so plainly instead of implying it's solved now.
+- **Files**: `drafts/comment_replies.md` (+1 entry)
+
+---
+
 ### 2026-08-05 - DEV.to: 1 article published (second run of the day) — quality bar, not forcing more
 
 - **Status**: Completed (live; verified via HTTP 200 fetch of the URL)

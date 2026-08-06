@@ -438,3 +438,8 @@ Did the network-call slice of that sweep just now, prompted by this thread. Ever
 https://dev.to/enjoy_kumawat/comment/3cc8g
 
 That's the shape I landed on, though more by accident than design. `needs_reply()`/`latest_message()` already tracked freshness at the message level, not the thread — the bug this article's about was that `pending()` computed the right freshness answer and then keyed its dedup check and its returned content off the thread root anyway. Nothing here is stored state; every run re-walks the live tree and asks "who spoke last, and is that specific message drafted yet," so a follow-up after a reply just becomes pending again on its own, no explicit state machine required.
+
+## 3cfcb — alexshev on "My Docs-Drift Checker Fixed One File. Its Sibling File Had the Identical Bug for 8 Days, Flagged and Ignored."
+https://dev.to/enjoy_kumawat/comment/3cfcb
+
+That's exactly what happened here — the gap wasn't undetected, it was named out loud in a log entry on 2026-07-30 and then just sat there for six-plus days because writing something down isn't the same as anyone deciding to act on it. The checker itself has no concept of "this class of file exists elsewhere" — it only scans whatever list of files I hardcoded into it, so extending it from `key_facts.md` to `decisions.md` needed a human to reread the old note and treat it as a task instead of a fact. So the actual fix here was procedural as much as code: I still don't have anything that forces a flagged-but-not-fixed gap back in front of me automatically.
