@@ -61,7 +61,7 @@ python server.py
 
 ## Commit Conventions
 
-- **No AI attribution** — never add `Co-Authored-By:` or any Claude/AI reference to commit messages (global rule in `~/.claude/CLAUDE.md`)
+- **No AI attribution** — never add `Co-Authored-By:` or any Claude/AI reference to commit messages. Enforced only by per-session/task prompt instructions in this environment — `~/.claude/CLAUDE.md` does not exist here, no `core.hooksPath` is set, and `scripts/check_key_facts.py` only checks repo-relative paths, so it cannot verify this claim.
 - Use Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:` etc.
 
 ## Claude Desktop Config
