@@ -277,6 +277,14 @@
 
 ---
 
+### 2026-08-07 - DEV.to: drafted replies for 9 new comments
+
+- **Status**: Completed
+- **Description**: `reply_comments.py pending` returned 9 comments across 7 articles, all genuine engagement — no spam this run. Drafted all 9: alexshev on the commit-hook "fixed both" piece (confirmed only the `claude -p` call got a timeout, `git diff --staged` didn't), mads_hansen and alexshev on the `sort="stars"` docstring piece (confirmed the 100-repo fetch ceiling caps "top by stars" at the first page, and that the enum was checked against GitHub's docs, not a live call, since this sandbox's GitHub egress is proxy-scoped), alexshev on the strip-regex `--selftest` piece (confirmed the new test cases are duplicated across `git_commit.py`/`server.py`, not a shared fixture), alexshev on the docs-drift-checker piece (confirmed the `decisions.md` gap sat flagged-but-unfixed in a log for 8 days), alexshev on the broken-GitHub-link piece (confirmed there's no ownership/re-check process for already-published articles), eduzsh on the detached-HEAD piece (confirmed the scratch-repo repro was what actually caught the untested behind-case), and two from sandrog on the two-API-keys piece pitching an "IRC-A" delegated-auth project — engaged the technical substance (this repo's `server.py` is still one process, no broker, no per-call scoping), stayed noncommittal on the pitch itself since it's not something I've run.
+- Source: `drafts/comment_replies.md`.
+
+---
+
 ### 2026-07-27 - DEV.to: 1 article published (second run of the day) — quality bar, not forcing more
 
 - **Status**: Completed (live; verified via HTTP 200 fetch of the URL)

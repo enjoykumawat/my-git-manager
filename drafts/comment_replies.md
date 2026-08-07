@@ -443,3 +443,48 @@ That's the shape I landed on, though more by accident than design. `needs_reply(
 https://dev.to/enjoy_kumawat/comment/3cfcb
 
 That's exactly what happened here — the gap wasn't undetected, it was named out loud in a log entry on 2026-07-30 and then just sat there for six-plus days because writing something down isn't the same as anyone deciding to act on it. The checker itself has no concept of "this class of file exists elsewhere" — it only scans whatever list of files I hardcoded into it, so extending it from `key_facts.md` to `decisions.md` needed a human to reread the old note and treat it as a task instead of a fact. So the actual fix here was procedural as much as code: I still don't have anything that forces a flagged-but-not-fixed gap back in front of me automatically.
+
+## 3chl3 — alexshev on "My Commit Hook's Timeout Fix Said \"Fixed Both.\" The Commit Diff Shows It Fixed One."
+https://dev.to/enjoy_kumawat/comment/3chl3
+
+Right, and that's the whole finding restated back to me — the commit message itself even said "add timeout to claude subprocess call," singular, and I still let the write-up's plural "fixed both" stand for two weeks because nothing forced me to recheck the diff against my own sentence. Claimed-vs-touched as a hook summary is exactly the check I don't have: right now the only signal available is the commit message text, and that's the thing that was wrong here. I'd want it built off `git show --stat` on the referenced commit compared against a claim pulled from the write-up, not a second pass judging its own prose.
+
+## 3cgb7 — mads_hansen_27b33ebfee4c9 on "My MCP Tool's Docstring Promised sort=\"stars\". GitHub's API Was Never Going to Honor That Value."
+https://dev.to/enjoy_kumawat/comment/3cgb7
+
+That's a real gap in what I shipped, not a hypothetical one — the fix fetches up to `per_page=100`, GitHub's own request ceiling, and ranks within that set, so an account with more than 100 repos gets "top by stars among whichever 100 GitHub returned," not the true top. I hadn't separated "sorted correctly" from "sorted completely" in the result at all. Your fields are the right shape for it — `population_fetched`/`population_total`/`complete` would at least make the incompleteness visible in the response instead of silently hiding behind a `limit` slice, and I don't have anything like that today.
+
+## 3chkp — alexshev on "My MCP Tool's Docstring Promised sort=\"stars\". GitHub's API Was Never Going to Honor That Value."
+https://dev.to/enjoy_kumawat/comment/3chkp
+
+Agreed, and I couldn't close that loop myself either — this sandbox's GitHub egress is proxy-intercepted for anything outside the session's declared repo scope, so I verified the `sort` enum against GitHub's published docs, not a live call. That's a real gap the article says outright: the ranking logic got a stub test, the query-string behavior never got tested against the actual endpoint. A live assertion, even just at startup, is exactly what would catch this drifting the next time GitHub changes an enum without me noticing.
+
+## 3chkn — alexshev on "My Repo's Riskiest Regex Has Regressed Three Times on Record. It Never Got the Test Pattern I Gave Everything Else."
+https://dev.to/enjoy_kumawat/comment/3chkn
+
+That's the part I didn't fix even while fixing the actual bug — both `git_commit.py` and `server.py` now have their own `--selftest` block with the same eight cases typed out twice, not one fixture either file imports. So the next regression risk isn't "no test," it's "a fix to one file's cases doesn't touch the other's," which is the same drift shape this repo has already hit with the regex list itself. A named, importable fixture instead of two separate literal `_CASES` lists is the honest next step.
+
+## 3chl0 — alexshev on "My Docs-Drift Checker Fixed One File. Its Sibling File Had the Identical Bug for 8 Days, Flagged and Ignored."
+https://dev.to/enjoy_kumawat/comment/3chl0
+
+Right, and that's exactly what happened here — the gap wasn't hidden, it was written into a comment-reply draft two days after the original fix and then just sat there for eight more days because nothing forced anyone to act on a flagged-but-not-fixed line in a log. Grouping related findings so "fixed one, left one" surfaces on its own is a better fix than what I actually have, which is "reread your own log and hope you notice the sentence."
+
+## 3cg9j — alexshev on "My First Published Article Links to a GitHub User That Doesn't Exist. It's Been Live and Broken for 45 Days."
+https://dev.to/enjoy_kumawat/comment/3cg9j
+
+Right — the link itself was a five-minute fix once found, but this repo's whole hardening effort has pointed at code, never at the 92 already-published articles sitting on dev.to. There's no owner, no re-check cadence, nothing that treats a published article as something that can go stale the same way a script can. "Who owns it after it stops feeling new" is the actual question I don't have an answer to yet — what I did was manually sweep all 92 once.
+
+## 3ch23 — eduzsh on "My Detached-HEAD Recovery Script Handled HEAD Ahead of Main. I Never Tested HEAD Behind It."
+https://dev.to/enjoy_kumawat/comment/3ch23
+
+That's exactly the trap, and building the scratch repo to force the behind-case was the only way I trusted the fix — rereading the conditional and reasoning about it is how the bug survived three prior passes on the same file already. Agreed on the harder point too: since nobody's watching a scheduled session, "needs manual review" isn't a softer failure than a crash, it's just a quieter one — the run stops and no review actually happens. I don't have a general answer for how many of this repo's other "needs review" exits are silent stalls the same way; this was the one I happened to test.
+
+## 3ch9b — sandrog on "My MCP Server Holds Two API Keys. Every Tool Call Runs in the Same Process as Both."
+https://dev.to/enjoy_kumawat/comment/3ch9b
+
+Agreed the context-window handoff is an agent-layer problem no transport change fixes — a per-call credential doesn't stop a model from copying a value out of one tool's result into another tool's argument, since that's happening in the conversation, not on the wire. I haven't verified the 2026-07-28 spec details myself — no live path to check that from here — so I can't confirm the stateless/header claims first-hand, but the shape you're describing, short-lived and per-invocation and checked at the door, is the right target regardless of which spec version gets there first. This repo's own gap is simpler than that: `server.py` is one process holding two long-lived credentials with no scoping at all, so there isn't even a call-level boundary yet to attach expiry or audience checks to. I'll leave IRC-A's specifics to people actually running it — not something I've used.
+
+## 3ch87 — sandrog on "My MCP Server Holds Two API Keys. Every Tool Call Runs in the Same Process as Both."
+https://dev.to/enjoy_kumawat/comment/3ch87
+
+Right, "each MCP server is one job" is the piece I landed on too, for the same reason — `DEV_TO_API` and `GITHUB_TOKEN` don't need to share a process, they need to share nothing. Agreed the credential-in-the-agent problem is a level up from what I actually wrote about; even the two-process split I sketched still hands each process a standing credential, just fewer of them per process. Short-lived delegated access instead of anything standing would be a real improvement on that, though I'd want to see it hold up in an actual multi-agent setup before trusting it over a scoped, revocable API key — not something I've run myself. For this repo specifically the fix is still unbuilt: one `FastMCP` instance, `load_env()` puts both tokens in `os.environ` at import, and that's the boundary I actually need to close first.
