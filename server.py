@@ -189,7 +189,16 @@ def get_repo_stats(repo: str) -> dict:
 @mcp.tool()
 def list_articles(per_page: int = 10) -> list:
     """List your published DEV.to articles."""
-    articles = _dev(f"/articles/me?per_page={min(per_page, 30)}")
+    # /articles/me (no suffix) returns ALL of the caller's articles, not just
+    # published ones — Forem's docs describe it as "a list of all articles",
+    # with unpublished drafts sorted first (creation order) ahead of published
+    # ones (publication order). This tool's docstring promises "published
+    # articles" only; the un-suffixed endpoint doesn't honor that, and with
+    # per_page truncating the response, enough drafts silently crowd every
+    # real published article out of the result. /articles/me/published is the
+    # endpoint that actually matches what this tool claims to return. See
+    # docs/project_notes/bugs.md 2026-08-07.
+    articles = _dev(f"/articles/me/published?per_page={min(per_page, 30)}")
     return [
         {
             "id": a["id"],
