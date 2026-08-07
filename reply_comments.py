@@ -54,6 +54,41 @@ def strip_html(h):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h)).strip()
 
 
+def my_articles():
+    """Every article this account has published, walking `page` explicitly.
+
+    `pending()`/`audit()` used to call `/articles?username=...&per_page=100`
+    with no `page` param at all. Verified live against the real API: that
+    exact call consistently comes back short — 98 of this account's 100
+    published articles — missing precisely the 2 most recently published
+    ones, while the identical call with `page=1` added returns the correct,
+    full 100. This isn't the per_page=30 truncation already fixed for the
+    publishing task's own novelty check (`scripts/list_all_published_titles.py`,
+    bugs.md 2026-08-04) — that was a page-size-vs-total gap on a different
+    endpoint (`/articles/me/published`); this is `/articles?username=...`
+    silently serving a stale/cached page when `page` is omitted, confirmed by
+    diffing the two calls' results directly. Effect here: `pending()`/`audit()`
+    never even fetch comments for an account's newest 1-2 articles until
+    they age out of whatever's causing the omitted-page response to lag, so
+    a fresh comment on a just-published article can't surface as pending no
+    matter how long it waits. Walking `page` explicitly from 1 also means
+    this stops depending on the account staying under one per_page=100 page
+    at all — the same near-miss flagged and deliberately deferred in
+    bugs.md 2026-08-04 ("within roughly a week of hitting the same cap"),
+    now closed as a side effect of fixing the caching gap. See
+    docs/project_notes/bugs.md 2026-08-07.
+    """
+    articles = []
+    page = 1
+    while True:
+        batch = api(f"/articles?username={ME}&per_page=100&page={page}")
+        if not batch:
+            break
+        articles.extend(batch)
+        page += 1
+    return articles
+
+
 def latest_message(comment):
     """The most recently created message anywhere in this comment's subtree."""
     latest = comment
@@ -105,7 +140,7 @@ def pending():
         drafted_text = ""
     drafted_codes = set(re.findall(r"^## (\S+)", drafted_text, re.M))
     out = []
-    for a in api(f"/articles?username={ME}&per_page=100"):
+    for a in my_articles():
         if not a["comments_count"]:
             continue
         for c in api(f"/comments?a_id={a['id']}"):
@@ -135,7 +170,7 @@ def audit():
         drafted_text = ""
     drafted_codes = set(re.findall(r"^## (\S+)", drafted_text, re.M))
     unposted = []
-    for a in api(f"/articles?username={ME}&per_page=100"):
+    for a in my_articles():
         if not a["comments_count"]:
             continue
         for c in api(f"/comments?a_id={a['id']}"):
@@ -203,6 +238,35 @@ if __name__ == "__main__":
         assert entry["body"] == "follow-up question", entry
         # And once "bbb" itself has been drafted, the thread correctly drops out.
         assert _pending_entry(root_round2, drafted_codes={"aaa", "bbb"}) is None
+
+        # my_articles() must walk `page` explicitly rather than trusting a
+        # single per_page=100 call — verified live against the real API that
+        # omitting `page` returns a short, stale-looking result (98 of 100
+        # real articles, missing the 2 newest) while paging explicitly from
+        # page=1 returns all of them. Stub api() to return 2 full pages then
+        # an empty one, matching that same "walk until empty" contract
+        # scripts/list_all_published_titles.py already uses.
+        _orig_api = api
+        _calls = []
+
+        def _fake_api(path):
+            _calls.append(path)
+            n = len(_calls)
+            if n == 1:
+                return [{"id": 1}, {"id": 2}]
+            if n == 2:
+                return [{"id": 3}]
+            return []
+
+        globals()["api"] = _fake_api
+        try:
+            got = my_articles()
+        finally:
+            globals()["api"] = _orig_api
+        assert [a["id"] for a in got] == [1, 2, 3], got
+        assert len(_calls) == 3, _calls  # stopped only once a page came back empty
+        assert "page=1" in _calls[0] and "page=2" in _calls[1] and "page=3" in _calls[2], _calls
+
         print("selftest ok")
     elif sys.argv[1:2] == ["pending"]:
         load_env()

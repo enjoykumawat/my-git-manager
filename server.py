@@ -147,9 +147,17 @@ _REPO_CLIENT_SORT_KEYS = {"stars": "stargazers_count", "forks": "forks_count"}
 def list_repos(sort: str = "updated", limit: int = 10) -> list:
     """List public repos. sort: updated|created|pushed|full_name|stars|forks. limit: 1-100."""
     api_sort = sort if sort in _REPO_API_SORTS else "updated"
+    # The docstring claims "limit: 1-100" but nothing enforced it — a negative
+    # limit wasn't rejected or clamped to empty, it fed straight into Python's
+    # own negative-index slice semantics (repos[:-1] drops only the last item,
+    # it doesn't mean "zero items"). A caller passing limit=-1 (e.g. from a
+    # miscomputed "remaining slots" value) silently got back nearly every repo
+    # instead of an error or an empty list. See docs/project_notes/bugs.md
+    # 2026-08-07.
+    limit = max(0, min(limit, 100))
     # stars/forks need every repo pulled before ranking, not just `limit` of them,
     # or truncation happens before the sort that was supposed to decide it.
-    fetch_limit = 100 if sort in _REPO_CLIENT_SORT_KEYS else min(limit, 100)
+    fetch_limit = 100 if sort in _REPO_CLIENT_SORT_KEYS else min(limit, 100) or 1
     repos = _gh(f"/users/{GITHUB_USERNAME}/repos?sort={api_sort}&per_page={fetch_limit}")
     if sort in _REPO_CLIENT_SORT_KEYS:
         repos = sorted(repos, key=lambda r: r[_REPO_CLIENT_SORT_KEYS[sort]], reverse=True)[:limit]
@@ -340,6 +348,28 @@ if __name__ == "__main__":
         for line, expect_stripped in _CASES:
             got = bool(_STRIP_RE.search(line))
             assert got == expect_stripped, (line, got, expect_stripped)
+
+        # list_repos's docstring claims "limit: 1-100" but the value was never
+        # validated — a negative limit fed straight into Python's own
+        # negative-index slicing (repos[:-1] means "all but the last one",
+        # not "zero"). See docs/project_notes/bugs.md 2026-08-07.
+        _FAKE_REPOS = [
+            {"name": f"repo{i}", "description": None, "stargazers_count": i,
+             "forks_count": i, "language": "Python", "html_url": f"https://x/{i}",
+             "updated_at": "2026-01-01"}
+            for i in range(5)
+        ]
+        _orig_gh = _gh
+        globals()["_gh"] = lambda path: list(_FAKE_REPOS)
+        try:
+            assert [r["name"] for r in list_repos(limit=-1)] == [], "negative limit must return nothing, not repos[:-1]"
+            assert [r["name"] for r in list_repos(limit=-3)] == []
+            assert [r["name"] for r in list_repos(limit=0)] == []
+            assert [r["name"] for r in list_repos(limit=999)] == [f"repo{i}" for i in range(5)]
+            assert [r["name"] for r in list_repos(limit=-1, sort="stars")] == []
+        finally:
+            globals()["_gh"] = _orig_gh
+
         print("selftest ok")
         raise SystemExit(0)
     mcp.run()
