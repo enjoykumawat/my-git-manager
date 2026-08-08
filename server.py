@@ -58,6 +58,17 @@ def _gh(path, method="GET", data=None):
         # limit surfaced as a raw urllib traceback to the MCP client, unlike
         # every failure path _claude() has (ERROR:-prefixed strings).
         raise RuntimeError(f"GitHub API error {e.code}: {e.read().decode()[:400]}") from e
+    except urllib.error.URLError as e:
+        # HTTPError (above) only covers responses that got an HTTP status
+        # code back. A timeout, DNS failure, or connection-refused on this
+        # call's own `timeout=30` never reaches that branch — it's a plain
+        # URLError, HTTPError's own superclass, and was still an uncaught
+        # raw traceback even after the 2026-08-01 HTTPError fix.
+        # publish_devto.py's `main()` got this exact sibling fix 2026-08-03;
+        # this call site and reply_comments.py's `api()` didn't, flagged
+        # live-verified-but-unfixed in issues.md 2026-08-04, still open
+        # until now. See docs/project_notes/bugs.md 2026-08-08.
+        raise RuntimeError(f"GitHub API network error: {e.reason}") from e
 
 
 # dev.to blocks any User-Agent containing "urllib" (case-insensitive) — this
@@ -83,6 +94,13 @@ def _dev(path, method="GET", data=None):
         # client instead of a clean error, unlike publish_devto.py's own
         # `except urllib.error.HTTPError` around the same call shape.
         raise RuntimeError(f"DEV.to API error {e.code}: {e.read().decode()[:400]}") from e
+    except urllib.error.URLError as e:
+        # HTTPError (above) is itself a URLError subclass and only covers
+        # responses with an actual HTTP status — a timeout, DNS failure, or
+        # connection-refused on this call's `timeout=30` raises the plainer
+        # URLError instead, which was still an uncaught raw traceback here.
+        # See docs/project_notes/bugs.md 2026-08-08.
+        raise RuntimeError(f"DEV.to API network error: {e.reason}") from e
 
 
 # Bare substrings ("llm", "claude", "anthropic") over-matched: any commit

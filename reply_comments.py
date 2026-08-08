@@ -48,6 +48,15 @@ def api(path):
         return json.load(urllib.request.urlopen(req, timeout=30))
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"dev.to API error {e.code}: {e.read().decode()[:400]}") from e
+    except urllib.error.URLError as e:
+        # HTTPError (above) is itself a URLError subclass and only covers
+        # responses with an actual HTTP status — a timeout, DNS failure, or
+        # connection-refused on this call's `timeout=30` raises the plainer
+        # URLError instead, which was still an uncaught raw traceback here
+        # even after the 2026-08-03 HTTPError fix. Flagged live-verified-
+        # but-unfixed in issues.md 2026-08-04, still open until now. See
+        # docs/project_notes/bugs.md 2026-08-08.
+        raise RuntimeError(f"dev.to API network error: {e.reason}") from e
 
 
 def strip_html(h):
