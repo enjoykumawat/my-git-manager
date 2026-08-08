@@ -71,14 +71,39 @@ def already_published(key, title):
     retry after an ambiguous failure) blindly re-POSTs and creates a second
     live article for one intended publish. See docs/project_notes/issues.md
     2026-08-03.
+
+    Walks every page (not just the newest 30) so the check covers this
+    account's full published history, not just its most recent page — see
+    docs/project_notes/bugs.md 2026-08-08.
+
+    A URLError here is exactly the failure class this whole check exists to
+    survive — silently returning None on it would let a caller publish blind
+    into the one condition where the previous attempt might already have
+    landed. So it's raised, not swallowed; an HTTPError (the server actually
+    responded) falls through instead, since that's a definite "verification
+    unavailable" rather than an ambiguous one.
     """
-    req = urllib.request.Request("https://dev.to/api/articles/me/published?per_page=30")
-    req.add_header("api-key", key)
-    req.add_header("User-Agent", "Mozilla/5.0")
-    try:
-        articles = json.load(urllib.request.urlopen(req, timeout=30))
-    except (urllib.error.HTTPError, urllib.error.URLError):
-        return None  # can't verify — fall through to the normal publish attempt
+    page = 1
+    articles = []
+    while True:
+        req = urllib.request.Request(
+            f"https://dev.to/api/articles/me/published?per_page=30&page={page}"
+        )
+        req.add_header("api-key", key)
+        req.add_header("User-Agent", "Mozilla/5.0")
+        try:
+            batch = json.load(urllib.request.urlopen(req, timeout=30))
+        except urllib.error.HTTPError:
+            return None  # server responded with an error — nothing to verify against
+        except urllib.error.URLError as e:
+            raise RuntimeError(
+                f"already_published() could not verify against dev.to ({e.reason}) "
+                "— refusing to publish blind"
+            ) from e
+        if not batch:
+            break
+        articles.extend(batch)
+        page += 1
     for a in articles:
         if a.get("title") == title:
             return a.get("url")
@@ -104,7 +129,10 @@ def main(md_path):
     published = meta.get("published", "false").lower() in ("true", "1", "yes")
 
     if published:
-        existing = already_published(key, title)
+        try:
+            existing = already_published(key, title)
+        except RuntimeError as e:
+            sys.exit(f"ERROR: {e}")
         if existing:
             print("ALREADY PUBLISHED (skipped duplicate) ->", existing)
             return {"url": existing, "already_published": True}

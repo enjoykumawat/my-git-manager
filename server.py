@@ -291,7 +291,6 @@ def update_article(article_id: int, title: str = None, body_markdown: str = None
     state first so the diff is known and logged before the write lands —
     a wrong or hallucinated article_id used to silently overwrite whatever
     it pointed at with no trace. See bugs.md 2026-07-27."""
-    before = _dev(f"/articles/{article_id}")
     article = {}
     if title is not None:
         article["title"] = title
@@ -299,6 +298,12 @@ def update_article(article_id: int, title: str = None, body_markdown: str = None
         article["body_markdown"] = body_markdown
     if published is not None:
         article["published"] = published
+    if not article:
+        raise ValueError(
+            "update_article called with no fields to update "
+            "(title/body_markdown/published all None)"
+        )
+    before = _dev(f"/articles/{article_id}")
     result = _dev(f"/articles/{article_id}", method="PUT", data={"article": article})
     _log_article_update(article_id, before, article.keys(), result)
     return {
