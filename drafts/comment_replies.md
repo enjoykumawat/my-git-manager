@@ -488,3 +488,28 @@ Agreed the context-window handoff is an agent-layer problem no transport change 
 https://dev.to/enjoy_kumawat/comment/3ch87
 
 Right, "each MCP server is one job" is the piece I landed on too, for the same reason — `DEV_TO_API` and `GITHUB_TOKEN` don't need to share a process, they need to share nothing. Agreed the credential-in-the-agent problem is a level up from what I actually wrote about; even the two-process split I sketched still hands each process a standing credential, just fewer of them per process. Short-lived delegated access instead of anything standing would be a real improvement on that, though I'd want to see it hold up in an actual multi-agent setup before trusting it over a scoped, revocable API key — not something I've run myself. For this repo specifically the fix is still unbuilt: one `FastMCP` instance, `load_env()` puts both tokens in `os.environ` at import, and that's the boundary I actually need to close first.
+
+## 3cifj — mads_hansen_27b33ebfee4c9 on "My MCP Tool's Docstring Promised 'limit: 1-100.' Passing -1 Returned Almost Everything, Not Nothing."
+https://dev.to/enjoy_kumawat/comment/3cifj
+
+What I shipped is exactly the blunt version you're pushing back on — `max(0, min(limit, 100))` at the top of `list_repos`, so `-1` and `0` both collapse into an empty list with no distinction between "you asked for nothing" and "you asked for something invalid." FastMCP does let a tool declare `minimum`/`maximum` on an int parameter in its schema, and I haven't touched that side at all — the docstring says `1-100` but nothing in the actual `@mcp.tool()` signature enforces it before the function body runs, so an out-of-range call still succeeds silently instead of coming back as a structured invalid-argument error. The three fixed cases I actually checked (`-1`, `-3`, `0`) are a much weaker spec than a property test over arbitrary ints. Schema-level rejection is the more correct fix and it's not the one I built.
+
+## 3cj5c — alexshev on "My Comment-Reply Script Asked DEV.to for 'My Articles.' Leaving Off One Query Param Silently Dropped the Newest Two."
+https://dev.to/enjoy_kumawat/comment/3cj5c
+
+That's basically what I ended up adding — the `--selftest` case for `my_articles()` stubs two full pages plus an empty one and asserts it walks `page=1,2,3` explicitly, so it's checking the pagination loop actually terminates correctly, not just that a bare call returns *something*. It doesn't go as far as your fixture, though: it doesn't assert that a specific known-newest item shows up in the result, only that all three stub pages get consumed. Tightening it to prove the newest item survives, not just that the loop ran, is the honest next step.
+
+## 3ci2f — mads_hansen_27b33ebfee4c9 on "My MCP Tool's Docstring Said 'Published Articles.' It Called the Endpoint That Returns Everything."
+https://dev.to/enjoy_kumawat/comment/3ci2f
+
+Honest answer: I only checked the one thing the bug was about — before the fix, 10/10 stubbed items are drafts; after, 5/5 are published. That's a fixed-fixture assertion, not the standing invariant you're describing. No pagination-boundary case in that test either, and nothing recording the upstream route (`/articles/me/published`) or a contract version alongside a failure — right now a failing assertion just says `expected True, got False`, with nothing pointing at which endpoint produced the wrong item. Turning `all(a["published"] for a in result)` into something every caller of `list_articles` runs, not just this one test, is the actual next step.
+
+## 3cj49 — themineworks on "My MCP Tool's Docstring Said 'Published Articles.' It Called the Endpoint That Returns Everything."
+https://dev.to/enjoy_kumawat/comment/3cj49
+
+This repo isn't paid-per-call, but the shape of the mistake is the one you're describing — `list_articles` returning 10 drafts with no error looked exactly as "successful" as it returning 5 real published articles, because the only check anywhere was "did the HTTP call not throw." The contract check I added lives in a test file, asserting on a stub after the fact, not inside `list_articles` itself before it returns to a caller. Moving `all(a["published"] for a in result)` from test-time to call-time — raise or filter inside the function, not just assert on it in `--selftest` — is exactly the gap your framing makes obvious that I hadn't named that way myself.
+
+## 3cj4f — alexshev on "My Publish Script Has an ERROR Convention for Every Failure Path Except the One Parsing Its Own Input"
+https://dev.to/enjoy_kumawat/comment/3cj4f
+
+No, and worth saying plainly: `--selftest` in `publish_devto.py` still only covers the well-formed case. I reproduced the malformed-frontmatter failure by hand in the article (a `broken-draft.md` run through the actual CLI) but never turned that repro into a case the selftest block runs automatically. So the parsing stage has a real error message now but no regression test guarding it — exactly the kind of gap that let the original bug sit unnoticed as long as it did.
