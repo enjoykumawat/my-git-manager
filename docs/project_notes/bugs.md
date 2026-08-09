@@ -5,6 +5,24 @@ Each entry: date, issue, root cause, solution, prevention.
 
 ---
 
+### 2026-08-09 - `_gh()`/`_dev()` and `publish_devto.py`'s `main()` raised a bare `KeyError` on a missing credential, flagged five days ago and never fixed
+
+- **Issue**: `server.py`'s `_gh()`/`_dev()` and `publish_devto.py`'s `main()` all read their API key via bare `os.environ['GITHUB_TOKEN']` / `os.environ["DEV_TO_API"]`. A container with no `.env`, a typo'd key name, or a `.env` defining only one of the two keys raised an unhandled `KeyError` — the one failure path in each file that didn't exit through its own established `RuntimeError`/`ERROR:`-prefixed convention. `publish_devto.py` is what the scheduled publishing task calls directly, twice a day.
+- **Root Cause**: This exact gap was named explicitly in `issues.md` 2026-08-05 ("left for another run") and re-confirmed still open by a 2026-08-06 comment-reply audit, but neither mention ever became a code change in either file — `publish_devto.py`'s identical instance wasn't even named. A gap that's been described twice without being fixed reads as closed to anyone skimming the log, when it never was.
+- **Solution**: `_gh()`/`_dev()` now check `os.environ.get(...)` and raise a clean `RuntimeError` before building the request. `publish_devto.py`'s `main()` checks the key before opening the markdown file and exits via `sys.exit("ERROR: ...")`. Verified live: unsetting `DEV_TO_API` and running `publish_devto.py` went from a raw `KeyError` traceback to a clean `ERROR: DEV_TO_API not set` exit; unsetting both vars and calling `_gh`/`_dev` went from `KeyError` to `RuntimeError` naming the missing var. Added regression cases to both files' `--selftest` blocks; all four scripts' selftest suites still pass.
+- **Prevention**: Naming an open gap in a log entry isn't the same as fixing it — a "left for another run" note needs a corresponding follow-up task, or it silently ages out the same way this one sat for five days across at least one re-confirmation.
+
+---
+
+### 2026-08-09 - `reply_comments.py`'s `strip_html()` stripped tags but never decoded HTML entities, garbling the exact text a reply gets drafted from
+
+- **Issue**: `strip_html()` removed HTML tags from a comment's `body_html` via regex but never decoded HTML entities. dev.to's rendered HTML entity-escapes a commenter's own literal `<`, `>`, `&`, and quote characters right alongside real markup tags — a comment like "isn't it faster with a Q&A cache? Try List<String>" came back through `pending()`'s `body` field as the literal `"isn&#39;t it faster with a Q&amp;A cache? Try List&lt;String&gt;"`, the exact text read to draft a reply.
+- **Root Cause**: The regex-based `strip_html()` only ever targeted `<[^>]+>` tags; nothing in the pipeline decoded the entities describing the commenter's real characters, and this function has never been individually audited before (prior comment-pipeline fixes covered thread-depth walking, dedup keying, and missing `page` params — never the text-extraction step itself).
+- **Solution**: Wrapped the tag-stripped text in `html.unescape()` before whitespace collapsing. Verified live: `"List&lt;String&gt; and Q&amp;A, isn&#39;t it?"` now decodes to `"List<String> and Q&A, isn't it?"`, confirmed end-to-end through `_pending_entry()`'s real `body` field, not just the standalone helper. Added two `--selftest` regression cases; `reply_comments.py --selftest` passes.
+- **Prevention**: A text-transformation function doing "the obvious thing" (strip tags) can still be wrong in a way nothing downstream catches, since garbled-but-plausible text doesn't crash anything — it just reads wrong. Worth periodically re-reading a formatting helper's actual output against real API responses, not just its lack of exceptions.
+
+---
+
 ### 2026-08-09 - `server.py`'s `create_article` duplicate-title check never got the pagination fix its twin in `publish_devto.py` got a day later
 
 - **Issue**: `create_article`'s idempotency guard (added 2026-08-03, same commit as `publish_devto.py`'s `already_published()`) still called `_dev("/articles/me/published?per_page=30")` — a single unpaginated request, checking only the 30 most recent of 100+ published articles. `already_published()` had the identical shape and was fixed to paginate on 2026-08-08 (see the entry above). `create_article` was never revisited.

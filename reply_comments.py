@@ -18,7 +18,7 @@ from ME — the file's growth is otherwise invisible to the pipeline itself.
 
 Reads DEV_TO_API from .env next to this script.
 """
-import json, os, re, sys, urllib.error, urllib.request
+import html, json, os, re, sys, urllib.error, urllib.request
 
 ME = "enjoy_kumawat"
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -60,7 +60,21 @@ def api(path):
 
 
 def strip_html(h):
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h)).strip()
+    """Plain text of a dev.to comment's body_html, for drafting replies.
+
+    dev.to's API returns rendered HTML: the commenter's own literal <, >, &,
+    and quote characters come back HTML-entity-escaped (any correct renderer
+    has to do this so real content never gets mistaken for markup), sitting
+    right alongside actual tags (<p>, <code>, ...) dev.to wraps the comment
+    in. The tag-stripping regex below only ever removed the tags — nothing
+    decoded the entities describing the commenter's real characters, so a
+    comment like "isn't it faster with a Q&A cache?" or one quoting code
+    with generics (List<String>) came back through pending()'s `body` field
+    as literal "isn&#39;t ... Q&amp;A" / "List&lt;String&gt;" — the exact
+    text a human (or an agent) drafting a reply reads to understand what was
+    asked. See docs/project_notes/bugs.md 2026-08-09 (entity-unescape gap).
+    """
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", h))).strip()
 
 
 def my_articles():
@@ -199,6 +213,22 @@ if __name__ == "__main__":
         def msg(user, ts, children=None, id_code="x", body="body"):
             return {"user": {"username": user}, "created_at": ts, "children": children or [],
                     "id_code": id_code, "body_html": f"<p>{body}</p>"}
+
+        # strip_html() must decode HTML entities after stripping tags, not
+        # just remove tags and leave a commenter's real <, >, &, and quote
+        # characters sitting in the output as literal "&lt;"/"&amp;"/"&#39;"
+        # text — dev.to's rendered body_html escapes those exactly like any
+        # correct HTML renderer must. See docs/project_notes/bugs.md 2026-08-09.
+        assert strip_html("<p>List&lt;String&gt; and Q&amp;A, isn&#39;t it?</p>") == (
+            "List<String> and Q&A, isn't it?"
+        )
+        # Round-trips through _pending_entry's real "body" field too, not
+        # just the standalone helper.
+        entry = _pending_entry(
+            msg("x", "2026-07-24T08:00:00Z", id_code="ent1", body="A&amp;B &lt;ok&gt;"),
+            drafted_codes=set(),
+        )
+        assert entry["body"] == "A&B <ok>", entry
 
         # I replied once (day 1) — no follow-up since. Handled.
         answered = msg("x", "2026-07-24T08:00:00Z", [msg(ME, "2026-07-25T10:00:00Z")])
