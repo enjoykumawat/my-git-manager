@@ -239,6 +239,23 @@ def list_articles(per_page: int = 10) -> list:
     ]
 
 
+def _all_published_titles():
+    # publish_devto.py's already_published() was fixed 2026-08-08 to walk
+    # every page instead of trusting a single per_page=30 call — this
+    # function was a single per_page=30 call, unfixed, checking only the
+    # 30 most recent of 91+ published articles. Mirrors that fix here.
+    # See docs/project_notes/bugs.md 2026-08-09.
+    page = 1
+    articles = []
+    while True:
+        batch = _dev(f"/articles/me/published?per_page=30&page={page}")
+        if not batch:
+            break
+        articles.extend(batch)
+        page += 1
+    return articles
+
+
 @mcp.tool()
 def create_article(title: str, body_markdown: str, tags: list[str] = None, published: bool = False) -> dict:
     """Create a new DEV.to article. Returns id and url."""
@@ -250,7 +267,7 @@ def create_article(title: str, body_markdown: str, tags: list[str] = None, publi
         # error blindly creates a second live article for one intended
         # publish. Mirrors publish_devto.py's own fix for the same gap.
         # See docs/project_notes/issues.md 2026-08-03.
-        for a in _dev("/articles/me/published?per_page=30"):
+        for a in _all_published_titles():
             if a.get("title") == title:
                 return {"id": a["id"], "url": a.get("url"), "published": True, "already_published": True}
     payload = {"article": {"title": title, "body_markdown": body_markdown, "published": published}}
@@ -392,6 +409,34 @@ if __name__ == "__main__":
             assert [r["name"] for r in list_repos(limit=-1, sort="stars")] == []
         finally:
             globals()["_gh"] = _orig_gh
+
+        # create_article's duplicate-title check used a single per_page=30
+        # call — a title sitting on page 2 or later of published history was
+        # invisible to it, so a retry of an older title would re-POST instead
+        # of detecting the existing article. See docs/project_notes/bugs.md
+        # 2026-08-09.
+        _PAGE1 = [{"id": i, "title": f"old-{i}", "url": f"https://x/{i}"} for i in range(30)]
+        _PAGE2 = [{"id": 30, "title": "the-target-title", "url": "https://x/30"}]
+        _orig_dev = _dev
+        _calls = {"n": 0}
+
+        def _fake_dev(path):
+            _calls["n"] += 1
+            if "page=1" in path:
+                return _PAGE1
+            if "page=2" in path:
+                return _PAGE2
+            return []
+
+        globals()["_dev"] = _fake_dev
+        try:
+            found = _all_published_titles()
+            assert any(a["title"] == "the-target-title" for a in found), (
+                "paginated walk must reach page 2, not stop at the first 30"
+            )
+            assert _calls["n"] == 3, "must walk page=1, page=2, then the empty page=3"
+        finally:
+            globals()["_dev"] = _orig_dev
 
         print("selftest ok")
         raise SystemExit(0)

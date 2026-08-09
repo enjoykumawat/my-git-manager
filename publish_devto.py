@@ -164,6 +164,71 @@ if __name__ == "__main__":
         assert b == "hello", repr(b)
         m2, b2 = parse("# Only H1\nbody")  # no frontmatter
         assert m2["title"] == "Only H1" and b2 == "body", (m2, b2)
+
+        # The 2026-08-06 fix (unclosed '---' frontmatter raising a clean
+        # ValueError instead of a bare unpack error) and the 2026-08-08 fix
+        # (already_published() paginating + distinguishing HTTPError from
+        # URLError) were both verified live with a one-off stubbed repro at
+        # the time, then never turned into a permanent case here — unlike
+        # every other fix in this repo's --selftest blocks. See
+        # docs/project_notes/bugs.md 2026-08-09.
+        try:
+            parse("---\ntitle: T\nno closing fence")
+            assert False, "unclosed frontmatter must raise ValueError"
+        except ValueError as e:
+            assert "never closed" in str(e), e
+
+        class _FakeResp:
+            def __init__(self, data):
+                self._data = json.dumps(data).encode()
+            def read(self):
+                return self._data
+
+        _PAGE1 = [{"title": f"old-{i}"} for i in range(30)]
+        _PAGE2 = [{"title": "the-target", "url": "https://x/t"}]
+        _orig_urlopen = urllib.request.urlopen
+
+        def _fake_paginate(req, timeout=30):
+            url = req.full_url
+            if "page=1" in url:
+                return _FakeResp(_PAGE1)
+            if "page=2" in url:
+                return _FakeResp(_PAGE2)
+            return _FakeResp([])
+
+        urllib.request.urlopen = _fake_paginate
+        try:
+            assert already_published("k", "the-target") == "https://x/t", (
+                "must walk to page 2, not stop at the first 30"
+            )
+            assert already_published("k", "nope") is None
+        finally:
+            urllib.request.urlopen = _orig_urlopen
+
+        def _fake_http_error(req, timeout=30):
+            raise urllib.error.HTTPError(req.full_url, 500, "err", None, None)
+
+        urllib.request.urlopen = _fake_http_error
+        try:
+            assert already_published("k", "anything") is None, (
+                "HTTPError means the server answered — fall through, don't block a legit publish"
+            )
+        finally:
+            urllib.request.urlopen = _orig_urlopen
+
+        def _fake_url_error(req, timeout=30):
+            raise urllib.error.URLError("timed out")
+
+        urllib.request.urlopen = _fake_url_error
+        try:
+            try:
+                already_published("k", "anything")
+                assert False, "URLError is the ambiguous case — must raise, not return None"
+            except RuntimeError:
+                pass
+        finally:
+            urllib.request.urlopen = _orig_urlopen
+
         print("selftest ok")
     elif len(sys.argv) != 2:
         sys.exit(__doc__)
