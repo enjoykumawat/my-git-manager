@@ -47,8 +47,19 @@ def _gh(path, method="GET", data=None):
     # comment-reply audit.
     if data is not None:
         raise ValueError("_gh is read-only — got a data payload on a GET call")
+    # A missing/unset GITHUB_TOKEN (no .env in this container, a typo'd key
+    # name, a fresh clone that never got one) used to reach straight into
+    # `os.environ['GITHUB_TOKEN']` and blow up with a bare, unhandled
+    # KeyError — the only failure path on this call that didn't exit through
+    # the same clean RuntimeError convention the HTTPError/URLError branches
+    # below already use. Flagged as an open gap in
+    # docs/project_notes/issues.md 2026-08-05 ("left for another run") and
+    # never fixed until now. See docs/project_notes/bugs.md 2026-08-09.
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        raise RuntimeError("GITHUB_TOKEN not set — add it to .env next to server.py (see key_facts.md)")
     req = urllib.request.Request(f"https://api.github.com{path}", method=method)
-    req.add_header("Authorization", f"token {os.environ['GITHUB_TOKEN']}")
+    req.add_header("Authorization", f"token {token}")
     req.add_header("Accept", "application/vnd.github.v3+json")
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
@@ -79,8 +90,13 @@ assert "urllib" not in _DEV_UA.lower(), "dev.to blocks any UA containing 'urllib
 
 
 def _dev(path, method="GET", data=None):
+    # Same gap as _gh() above, same fix — see docs/project_notes/issues.md
+    # 2026-08-05 and docs/project_notes/bugs.md 2026-08-09.
+    key = os.environ.get("DEV_TO_API")
+    if not key:
+        raise RuntimeError("DEV_TO_API not set — add it to .env next to server.py (see key_facts.md)")
     req = urllib.request.Request(f"https://dev.to/api{path}", method=method)
-    req.add_header("api-key", os.environ["DEV_TO_API"])
+    req.add_header("api-key", key)
     req.add_header("Content-Type", "application/json")
     req.add_header("User-Agent", _DEV_UA)
     if data:
@@ -437,6 +453,36 @@ if __name__ == "__main__":
             assert _calls["n"] == 3, "must walk page=1, page=2, then the empty page=3"
         finally:
             globals()["_dev"] = _orig_dev
+
+        # _gh()/_dev() used to read os.environ['GITHUB_TOKEN']/['DEV_TO_API']
+        # directly — a missing credential (no .env, a typo'd key name, a
+        # fresh container) surfaced as a bare, unhandled KeyError instead of
+        # this file's own clean RuntimeError convention. Flagged as an open
+        # gap in docs/project_notes/issues.md 2026-08-05, never fixed until
+        # docs/project_notes/bugs.md 2026-08-09.
+        _saved_gh_token = os.environ.pop("GITHUB_TOKEN", None)
+        _saved_dev_key = os.environ.pop("DEV_TO_API", None)
+        try:
+            try:
+                _gh("/users/x")
+                assert False, "missing GITHUB_TOKEN must raise, not silently proceed"
+            except KeyError:
+                assert False, "must raise a clean RuntimeError, not a bare KeyError"
+            except RuntimeError as e:
+                assert "GITHUB_TOKEN" in str(e), e
+
+            try:
+                _dev("/articles/me/published")
+                assert False, "missing DEV_TO_API must raise, not silently proceed"
+            except KeyError:
+                assert False, "must raise a clean RuntimeError, not a bare KeyError"
+            except RuntimeError as e:
+                assert "DEV_TO_API" in str(e), e
+        finally:
+            if _saved_gh_token is not None:
+                os.environ["GITHUB_TOKEN"] = _saved_gh_token
+            if _saved_dev_key is not None:
+                os.environ["DEV_TO_API"] = _saved_dev_key
 
         print("selftest ok")
         raise SystemExit(0)

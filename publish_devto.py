@@ -113,7 +113,21 @@ def already_published(key, title):
 def main(md_path):
     here = os.path.dirname(os.path.abspath(__file__))
     load_env(os.path.join(here, ".env"))
-    key = os.environ["DEV_TO_API"]
+    # A missing/unset DEV_TO_API (no .env in a fresh container, a typo'd key
+    # name) used to reach straight into `os.environ["DEV_TO_API"]` and raise
+    # a bare, unhandled KeyError — the one failure path in this script's
+    # main() that didn't exit through its own `ERROR:`-prefixed convention,
+    # the same gap the 2026-08-06 parse()/frontmatter fix closed for
+    # malformed input but never for a missing credential. This script is
+    # what the scheduled publishing task calls directly, twice a day — a
+    # container that starts without a usable .env crashes with a raw
+    # traceback instead of a clean, actionable message. Flagged as an open
+    # gap for server.py's twin functions in docs/project_notes/issues.md
+    # 2026-08-05 ("left for another run") and never fixed anywhere in this
+    # repo until now. See docs/project_notes/bugs.md 2026-08-09.
+    key = os.environ.get("DEV_TO_API")
+    if not key:
+        sys.exit("ERROR: DEV_TO_API not set — add it to .env next to this script")
 
     try:
         meta, body = parse(open(md_path, encoding="utf-8").read())
@@ -228,6 +242,25 @@ if __name__ == "__main__":
                 pass
         finally:
             urllib.request.urlopen = _orig_urlopen
+
+        # A missing DEV_TO_API used to reach `os.environ["DEV_TO_API"]`
+        # directly and raise a bare, unhandled KeyError out of main() —
+        # instead of exiting through this script's own `ERROR:` convention
+        # like every other failure path. See docs/project_notes/bugs.md
+        # 2026-08-09. Note: the credential check happens before md_path is
+        # ever opened, so a bogus path here doesn't matter.
+        _saved_dev_key = os.environ.pop("DEV_TO_API", None)
+        try:
+            try:
+                main("this-file-does-not-exist.md")
+                assert False, "missing DEV_TO_API must exit, not silently proceed"
+            except SystemExit as e:
+                assert e.code is not None and "DEV_TO_API not set" in str(e.code), e.code
+            except KeyError:
+                assert False, "must exit through ERROR: convention, not a bare KeyError"
+        finally:
+            if _saved_dev_key is not None:
+                os.environ["DEV_TO_API"] = _saved_dev_key
 
         print("selftest ok")
     elif len(sys.argv) != 2:
