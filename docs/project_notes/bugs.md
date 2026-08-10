@@ -5,6 +5,15 @@ Each entry: date, issue, root cause, solution, prevention.
 
 ---
 
+### 2026-08-10 - `git_commit.py` and `server.py`'s `_claude()` loaded this repo's own `CLAUDE.md` into every one-shot commit-message completion — fixed same-day, but the code comments pointing here predate this entry
+
+- **Issue**: Both `git_commit.py` and `server.py`'s `_claude()` shelled out via bare `subprocess.check_output(["claude", "-p", prompt], ...)` with no isolation flag. A `claude -p` subprocess launched from this repo's root auto-discovers and loads `CLAUDE.md` — including its "MANDATORY routing rules" block instructing the model to route through `ctx_*` MCP tools that don't exist in this process — into a completion that only ever needs to turn a git diff into one Conventional Commit line. Live probe: a bare `claude -p "reply YES-SAW-CTX-RULES if you see context-mode routing rules, else NO-CTX-RULES"` from this repo's root returned `YES-SAW-CTX-RULES`.
+- **Root Cause**: Neither call site ever isolated the subprocess from ambient project config. `--bare` looked like the obvious fix (drops all auto-discovery) but was ruled out live: it requires `ANTHROPIC_API_KEY`/`apiKeyHelper` and explicitly refuses to read an OAuth session — this project has no `ANTHROPIC_API_KEY` by design (`key_facts.md`: "Claude calls go through `claude -p` subprocess (OAuth session)"), so `--bare` would have broken auth entirely, not just fixed the loading.
+- **Solution**: Added `--safe-mode` to both `claude -p` invocations — it drops CLAUDE.md/skills/plugins/hooks/MCP-server auto-discovery while leaving OAuth auth intact. Re-ran the same probe post-fix: `NO-CTX-RULES`. Verified `git_commit.py --selftest` still passes; `server.py` still parses and its own `--selftest` block still passes. Both files fixed in the same commit (`8a7d7ca`), not staggered — no sibling-file gap this time.
+- **Prevention**: This entry itself is the prevention note for a smaller gap: both files' inline comments were written citing "see docs/project_notes/bugs.md 2026-08-10" *before* any such entry existed — the fix commit landed the code and an `issues.md` summary but not the `bugs.md` root-cause writeup its own comments point to. `CLAUDE.md`'s protocol says "encountering an error → search `bugs.md` first"; a comment pointing at a date with nothing behind it fails that search silently — it looks like a citation, reads as one, and isn't. Write the `bugs.md` entry in the same commit as the code comment that cites it, not after.
+
+---
+
 ### 2026-08-09 - `_gh()`/`_dev()` and `publish_devto.py`'s `main()` raised a bare `KeyError` on a missing credential, flagged five days ago and never fixed
 
 - **Issue**: `server.py`'s `_gh()`/`_dev()` and `publish_devto.py`'s `main()` all read their API key via bare `os.environ['GITHUB_TOKEN']` / `os.environ["DEV_TO_API"]`. A container with no `.env`, a typo'd key name, or a `.env` defining only one of the two keys raised an unhandled `KeyError` — the one failure path in each file that didn't exit through its own established `RuntimeError`/`ERROR:`-prefixed convention. `publish_devto.py` is what the scheduled publishing task calls directly, twice a day.
