@@ -2,6 +2,12 @@
 
 ---
 
+### 2026-08-10 - DEV.to: 5 comment replies drafted
+
+- 2026-08-10: 5 replies drafted in `drafts/comment_replies.md` for comments on "My MCP Server's Two Credential Checks Were Flagged Missing Five Days Ago. Nobody Fixed Them." (2, talha_ramzan_3878156fea8c and mads_hansen_27b33ebfee4c9), "My Comment-Reply Pipeline Was Feeding Me Garbled HTML Entities Instead of the Actual Comment" (1, talha_ramzan_3878156fea8c), "My Publish Script's Duplicate-Article Check Learned to Paginate. Its Twin in the MCP Server Never Got the Fix." (1, mads_hansen_27b33ebfee4c9), "My Idempotency Guard Exists to Survive One Specific Error. That Error Made It Fail Open." (1, anp2network). Drafting-only run — checked current code (`publish_devto.py`, `server.py`) against each comment's claims before answering rather than trusting the article text alone; confirmed the HTTPError-on-429 fail-open gap anp2network raised is still live and unaddressed, and that `create_article`'s `_dev()` already fails closed on all errors while `publish_devto.py`'s `already_published()` still doesn't — an asymmetry not fixed in this run.
+
+---
+
 ### 2026-08-09 - DEV.to: 2 articles published (second run of the day)
 
 - **Status**: Completed (both live; verified via HTTP 200 fetch of each URL)
