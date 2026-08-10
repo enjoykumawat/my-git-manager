@@ -136,8 +136,12 @@ _STRIP_RE = re.compile("|".join(_STRIP_PATTERNS), re.IGNORECASE)
 def _claude(prompt: str, system: str = None) -> str:
     full = (system + "\n\n" + prompt) if system else prompt
     try:
+        # Same fix as git_commit.py's twin call — --safe-mode drops
+        # CLAUDE.md/skills/plugins/hooks/MCP-server auto-discovery without
+        # requiring ANTHROPIC_API_KEY (--bare does, and this server has none;
+        # see key_facts.md). See docs/project_notes/bugs.md 2026-08-10.
         raw = subprocess.check_output(
-            ["claude", "-p", full], text=True, timeout=20, stderr=subprocess.PIPE
+            ["claude", "-p", "--safe-mode", full], text=True, timeout=20, stderr=subprocess.PIPE
         ).strip()
     except subprocess.TimeoutExpired:
         return "ERROR: claude -p timed out after 20s"

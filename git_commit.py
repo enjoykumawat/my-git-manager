@@ -65,8 +65,17 @@ if not diff.strip():
     raise SystemExit(1)
 
 try:
+    # --safe-mode disables CLAUDE.md/skills/plugins/hooks/MCP-server
+    # auto-discovery while leaving OAuth auth intact (unlike --bare, which
+    # forces ANTHROPIC_API_KEY/apiKeyHelper and refuses to read the OAuth
+    # session this script actually authenticates with — see key_facts.md
+    # "No ANTHROPIC_API_KEY"). Without it, this call inherits whatever
+    # CLAUDE.md happens to sit in the caller's cwd — verified live: a bare
+    # `claude -p` from this repo's root loads this project's own
+    # "MANDATORY routing rules" for a one-line commit-message completion
+    # that never calls a tool. See docs/project_notes/bugs.md 2026-08-10.
     raw = subprocess.check_output(
-        ["claude", "-p", SYSTEM + "\n\n" + diff],
+        ["claude", "-p", "--safe-mode", SYSTEM + "\n\n" + diff],
         text=True,
         timeout=20,
         stderr=subprocess.PIPE,
