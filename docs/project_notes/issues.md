@@ -768,3 +768,6 @@
   - Tags: mcp/ai/python/debugging; mcp/llm/python/ai. Sources: `drafts/my-fix-commit-cited-a-bugs-md-entry-that-didnt-exist.md`, `drafts/i-measured-what-my-curated-mcp-tool-output-is-actually-saving.md`.
   - https://dev.to/enjoy_kumawat/my-fix-commit-cited-a-bugsmd-entry-that-didnt-exist-yet-1g5
   - https://dev.to/enjoy_kumawat/i-measured-what-my-curated-mcp-tool-output-is-actually-saving-4f36
+
+### 2026-08-11 - DEV.to: 5 comment replies drafted
+- 2026-08-11: 5 replies drafted in `drafts/comment_replies.md` for comments on "I Measured What My Curated MCP Tool Output Is Actually Saving" (1, talha_ramzan_3878156fea8c), "My Fix Commit Cited a bugs.md Entry That Didn't Exist Yet" (1, talha_ramzan_3878156fea8c), "My Commit-Message Script Has 8 Assertions in --selftest. None of Them Touch the Code That Can Actually Fail." (1, alexshev), "I Ran `claude -p` for One Commit Message. My Whole CLAUDE.md Came Along Uninvited." (1, alexshev), "My MCP Server's Two Credential Checks Were Flagged Missing Five Days Ago. Nobody Fixed Them." (1, cailab).

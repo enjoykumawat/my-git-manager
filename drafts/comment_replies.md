@@ -399,6 +399,31 @@ https://dev.to/enjoy_kumawat/comment/3cak5
 
 Right, and what I actually shipped isn't that yet — it's a `RuntimeError` with a formatted string (`"GitHub API error {code}: {body[:400]}"`), which is more boring than a raw traceback but still just a string a caller has to parse to act on. No error code field, no `retryable` flag, no distinction between "your input was bad" and "try again later." A consistent envelope with typed fields, not just a consistently-worded message, is the actual version of "boring" you're describing, and I haven't built it.
 
+## 3cm99 — talha_ramzan_3878156fea8c on "I Measured What My Curated MCP Tool Output Is Actually Saving"
+https://dev.to/enjoy_kumawat/comment/3cm99
+
+That's a sharper statement of the risk than the one I wrote. "Erodes by addition" is exactly right — nobody's going to open a PR titled "add back the field we curated away," but a summary field sliced from `body_markdown` reads as a pure improvement in review, and the byte count only tells on it if someone reruns the check. I haven't wired `payload_cost()` into anything yet, to be honest — it's the three-line function at the end of the post, not a running gate. Sitting it next to the existing `--selftest` blocks the way you're describing, so it fires on every schema change instead of only when I remember to run it by hand, is the actual next step.
+
+## 3cm9f — talha_ramzan_3878156fea8c on "My Fix Commit Cited a bugs.md Entry That Didn't Exist Yet"
+https://dev.to/enjoy_kumawat/comment/3cm9f
+
+"A broken pointer is worse than no pointer" is a cleaner way to say what I was circling. And the parallel to the credential-check bug is the right one — same failure shape, naming a gap in prose versus actually closing it look identical in a skim, and both times it took rereading the thing later, not writing it, to notice the difference. The fix I landed on is exactly the boring rule you named: the `bugs.md` entry now gets written in the same commit as any comment or log line that cites it, not queued for "a follow-up." No tooling enforces that yet, it's just the habit I'm holding myself to since this one bit me.
+
+## 3cmpg — alexshev on "My Commit-Message Script Has 8 Assertions in --selftest. None of Them Touch the Code That Can Actually Fail."
+https://dev.to/enjoy_kumawat/comment/3cmpg
+
+Agreed, and I want to be honest that what I proposed at the end of that post is narrower than what you're describing. My plan was: extract the diff-read-and-generate logic into a function, then mock `subprocess.check_output` the same way `publish_devto.py` mocks `urllib.request.urlopen`. That exercises the exception branches, but it's still a stubbed dependency, not real argv parsing or real temp-repo git state — so it would catch "does this except clause fire" without catching "does this script actually behave correctly when invoked the way `prepare-commit-msg` invokes it, from a real repo, with a real staged diff." I hadn't drawn that distinction until your comment; closer to what you're describing is the better test, mine is the cheaper one I was about to settle for.
+
+## 3cmpi — alexshev on "I Ran `claude -p` for One Commit Message. My Whole CLAUDE.md Came Along Uninvited."
+https://dev.to/enjoy_kumawat/comment/3cmpi
+
+Right, and `--safe-mode` is the blunt version of that contract, not the real one. It's an off-switch — CLAUDE.md, skills, plugins, hooks, MCP servers, all gone at once — not an allowlist that says "this call gets diff, intent, and style rules, and nothing else." It happened to be the correct fix here because a one-line commit message genuinely needs none of that project context, but if a future task in this repo did need a narrow slice of it — recent commit history, say — `--safe-mode` has no way to let just that back in. It's pass-everything or pass-nothing, and "pass nothing" only looked like a contract because it happened to be the right answer this time.
+
+## 3cm0h — cailab on "\"My MCP Server's Two Credential Checks Were Flagged Missing Five Days Ago. Nobody Fixed Them.\""
+https://dev.to/enjoy_kumawat/comment/3cm0h
+
+That's fair, and checking it against what actually exists: there are three separate bare-lookup sites today, not two — `_gh()` and `_dev()` in `server.py`, plus `publish_devto.py`'s own `os.environ["DEV_TO_API"]` in `main()`, which is a second, independent copy of the same pattern rather than a shared call into either helper. What I shipped this round fixes all three the same way — `.get()` plus a clean error — but that's three matching diffs, not one place that can't drift. A single vault-style lookup at call time would make a missing key fail in exactly one spot and remove the "did I fix all the copies" question entirely, which is the actual failure this repo keeps having (the GitHub-helper error handling and the tag-truncation logic both drifted between twin copies before, same shape). I haven't built that centralization — just closed the three instances I could find by hand.
+
 ## 3cakd — alexshev on "My Comment-Reply Audit Only Checked One Level Deep. Nested Replies Reported as Never Posted."
 https://dev.to/enjoy_kumawat/comment/3cakd
 
