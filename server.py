@@ -133,8 +133,19 @@ _STRIP_PATTERNS = [
 ]
 _STRIP_RE = re.compile("|".join(_STRIP_PATTERNS), re.IGNORECASE)
 
+_MAX_CLAUDE_ARG_BYTES = 200_000
+
+
 def _claude(prompt: str, system: str = None) -> str:
     full = (system + "\n\n" + prompt) if system else prompt
+    # Same argv-size ceiling as git_commit.py's twin call: claude -p takes
+    # the prompt as one argv element, and the OS caps total argv+environ
+    # size (2 MiB via getconf ARG_MAX on this machine). A large enough diff
+    # passed to generate_commit_message crashes with an uncaught OSError —
+    # none of the except clauses below is OSError. See
+    # docs/project_notes/bugs.md 2026-08-11.
+    if len(full.encode()) > _MAX_CLAUDE_ARG_BYTES:
+        return f"ERROR: prompt is {len(full.encode())} bytes, over the {_MAX_CLAUDE_ARG_BYTES}-byte claude -p argv limit."
     try:
         # Same fix as git_commit.py's twin call — --safe-mode drops
         # CLAUDE.md/skills/plugins/hooks/MCP-server auto-discovery without
@@ -507,6 +518,16 @@ if __name__ == "__main__":
             assert False, "_gh must reject a data payload, not silently attach it to a GET"
         except ValueError as e:
             assert "read-only" in str(e), e
+
+        # claude -p takes its prompt as a single argv element; a diff large
+        # enough to push the combined prompt over the OS's ARG_MAX previously
+        # crashed with an uncaught OSError (no except clause in _claude()
+        # catches OSError). See docs/project_notes/bugs.md 2026-08-11.
+        _oversized = "x" * (_MAX_CLAUDE_ARG_BYTES + 1)
+        result = _claude(_oversized)
+        assert result.startswith("ERROR:") and "argv limit" in result, (
+            "an oversized prompt must fail through the ERROR: convention, not reach subprocess"
+        )
 
         print("selftest ok")
         raise SystemExit(0)

@@ -60,8 +60,33 @@ try:
 except subprocess.TimeoutExpired:
     print("git diff --staged timed out after 20s", file=sys.stderr)
     raise SystemExit(1)
+except UnicodeDecodeError as e:
+    # text=True decodes git's output with the locale's default encoding
+    # (utf-8 here). A staged file containing bytes that aren't valid UTF-8
+    # (a cp1252-authored file, a legacy CSV, a stray non-ASCII byte) makes
+    # this raise before the diff is even checked for emptiness. Via the
+    # prepare-commit-msg hook this crash is invisible: `2>/dev/null` drops
+    # the traceback and `&&` short-circuits on the non-zero exit, so the
+    # commit just silently gets no AI message — no error shown anywhere.
+    print(f"git diff --staged produced non-UTF-8 output: {e}", file=sys.stderr)
+    raise SystemExit(1)
 if not diff.strip():
     print("Nothing staged. Run `git add` first.")
+    raise SystemExit(1)
+
+# claude -p takes the prompt as a single argv element (see below). The OS
+# caps total argv+environ size (getconf ARG_MAX; 2 MiB on this machine) —
+# a large enough staged diff (a lockfile regen, a big refactor, a vendored
+# file) blows past it with a raw, uncaught OSError: none of this script's
+# three except clauses below is OSError. Bound it before building the
+# argv and fail through this script's own convention instead.
+_MAX_DIFF_BYTES = 200_000
+if len(diff.encode()) > _MAX_DIFF_BYTES:
+    print(
+        f"Staged diff is {len(diff.encode())} bytes, over the "
+        f"{_MAX_DIFF_BYTES}-byte limit for a claude -p argv. Write your own commit message.",
+        file=sys.stderr,
+    )
     raise SystemExit(1)
 
 try:
