@@ -488,6 +488,26 @@ if __name__ == "__main__":
             if _saved_dev_key is not None:
                 os.environ["DEV_TO_API"] = _saved_dev_key
 
+        # _gh()'s read-only guard (line ~42) is the only thing standing
+        # between an over-scoped GITHUB_TOKEN (`repo, user` — full write,
+        # see key_facts.md) and a real write landing on GitHub, since no
+        # GitHub tool in this file ever passes method= or data= on purpose.
+        # The guard itself had never been exercised by this selftest block —
+        # every other guard added to this file got a regression case in the
+        # same run it was written, this one didn't. See
+        # docs/project_notes/bugs.md 2026-08-11.
+        try:
+            _gh("/users/x", method="POST")
+            assert False, "_gh must reject a non-GET method, not silently send it"
+        except ValueError as e:
+            assert "read-only" in str(e), e
+
+        try:
+            _gh("/users/x", data={"a": 1})
+            assert False, "_gh must reject a data payload, not silently attach it to a GET"
+        except ValueError as e:
+            assert "read-only" in str(e), e
+
         print("selftest ok")
         raise SystemExit(0)
     mcp.run()
