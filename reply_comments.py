@@ -135,28 +135,47 @@ def needs_reply(comment):
     return latest_message(comment)["user"]["username"] != ME
 
 
-def _pending_entry(comment, drafted_codes):
-    """The dict to surface for this thread, or None if nothing's pending.
+def _pending_leaves(comment):
+    """Yield every leaf comment in this subtree not authored by ME — i.e.
+    every conversation branch nobody has replied to yet.
 
-    Keys off the *latest* unanswered message's id_code, not the thread
-    root's. A dedup check keyed on the root goes stale the moment a
-    second round happens: the root gets one draft, its id_code lands in
-    drafted_codes, and every later follow-up in that thread — each with
-    its own id_code dev.to assigns it — stays permanently invisible,
-    because the check never looks past the root. See
-    docs/project_notes/bugs.md 2026-08-02.
+    `needs_reply()`/`latest_message()` only ever look at the single
+    globally most-recent message across an entire top-level thread — a
+    subtree walk that returns exactly one winner. That's correct for a
+    thread that only ever grows one message at a time (the sequential
+    case both those functions, and the 2026-08-02 root-vs-latest dedup
+    fix built on them, were tested against), but a real dev.to thread can
+    also *branch*: two different commenters both replying to the same
+    parent comment as siblings, not to each other. `latest_message()`
+    still returns only whichever sibling has the later timestamp — the
+    other sibling, an equally real and equally unanswered leaf, is never
+    considered at all. Worse, it's not just missed for one run: once ME
+    replies to the newer branch, that reply becomes the new global
+    "latest message," `needs_reply()` reports the whole thread as
+    handled, and the older branch's leaf is permanently unreachable —
+    nothing ever looks at it again. See docs/project_notes/bugs.md
+    2026-08-12 (second entry).
     """
-    if not needs_reply(comment):
-        return None
-    latest = latest_message(comment)
-    if latest["id_code"] in drafted_codes:
-        return None
-    return {
-        "id_code": latest["id_code"],
-        "author": latest["user"]["username"],
-        "comment_url": f"https://dev.to/{ME}/comment/{latest['id_code']}",
-        "body": strip_html(latest["body_html"]),
-    }
+    if not comment["children"]:
+        if comment["user"]["username"] != ME:
+            yield comment
+        return
+    for child in comment["children"]:
+        yield from _pending_leaves(child)
+
+
+def _pending_entries(comment, drafted_codes):
+    """Every still-open entry in this top-level thread — one per
+    unanswered leaf/branch, not just a single "the" pending message."""
+    for leaf in _pending_leaves(comment):
+        if leaf["id_code"] in drafted_codes:
+            continue
+        yield {
+            "id_code": leaf["id_code"],
+            "author": leaf["user"]["username"],
+            "comment_url": f"https://dev.to/{ME}/comment/{leaf['id_code']}",
+            "body": strip_html(leaf["body_html"]),
+        }
 
 
 def pending():
@@ -170,8 +189,7 @@ def pending():
         if not a["comments_count"]:
             continue
         for c in api(f"/comments?a_id={a['id']}"):
-            entry = _pending_entry(c, drafted_codes)
-            if entry:
+            for entry in _pending_entries(c, drafted_codes):
                 out.append({**entry, "article": a["title"]})
     return out
 
@@ -225,13 +243,13 @@ if __name__ == "__main__":
         assert strip_html("<p>List&lt;String&gt; and Q&amp;A, isn&#39;t it?</p>") == (
             "List<String> and Q&A, isn't it?"
         )
-        # Round-trips through _pending_entry's real "body" field too, not
+        # Round-trips through _pending_entries's real "body" field too, not
         # just the standalone helper.
-        entry = _pending_entry(
+        entries = list(_pending_entries(
             msg("x", "2026-07-24T08:00:00Z", id_code="ent1", body="A&amp;B &lt;ok&gt;"),
             drafted_codes=set(),
-        )
-        assert entry["body"] == "A&B <ok>", entry
+        ))
+        assert len(entries) == 1 and entries[0]["body"] == "A&B <ok>", entries
 
         # I replied once (day 1) — no follow-up since. Handled.
         answered = msg("x", "2026-07-24T08:00:00Z", [msg(ME, "2026-07-25T10:00:00Z")])
@@ -258,7 +276,8 @@ if __name__ == "__main__":
 
         # Round 1: root comment "aaa" drafted, no reply posted yet — pending.
         root_round1 = msg("x", "2026-07-24T08:00:00Z", id_code="aaa", body="original question")
-        assert _pending_entry(root_round1, drafted_codes=set())["id_code"] == "aaa"
+        r1 = list(_pending_entries(root_round1, drafted_codes=set()))
+        assert len(r1) == 1 and r1[0]["id_code"] == "aaa", r1
 
         # Round 2: I posted my reply on-site, then x followed up with a NEW
         # comment "bbb" nested under my reply. The old code kept using the
@@ -274,12 +293,35 @@ if __name__ == "__main__":
                                        body="follow-up question"),
                                ]),
                            ])
-        entry = _pending_entry(root_round2, drafted_codes={"aaa"})
-        assert entry is not None, "follow-up must still surface even though the root was drafted"
-        assert entry["id_code"] == "bbb", entry
-        assert entry["body"] == "follow-up question", entry
+        r2 = list(_pending_entries(root_round2, drafted_codes={"aaa"}))
+        assert len(r2) == 1, "follow-up must still surface even though the root was drafted"
+        assert r2[0]["id_code"] == "bbb", r2
+        assert r2[0]["body"] == "follow-up question", r2
         # And once "bbb" itself has been drafted, the thread correctly drops out.
-        assert _pending_entry(root_round2, drafted_codes={"aaa", "bbb"}) is None
+        assert list(_pending_entries(root_round2, drafted_codes={"aaa", "bbb"})) == []
+
+        # Branching thread: root -> my reply -> TWO SEPARATE commenters
+        # (B, C) both reply to *my* reply as siblings, not to each other.
+        # latest_message()/needs_reply() only ever look at the single
+        # globally most-recent leaf in a subtree, so before this fix only
+        # C's message (the later timestamp) ever surfaced — B's, an
+        # equally real, equally unanswered comment from a different
+        # person, was silently dropped and stayed dropped forever, even
+        # after C's branch got a reply (which would make C's reply the
+        # new "latest," marking the whole thread "handled"). See
+        # docs/project_notes/bugs.md 2026-08-12 (second entry).
+        branching = msg("userA", "2026-08-01T08:00:00Z", id_code="root1", body="original", children=[
+            msg(ME, "2026-08-02T08:00:00Z", id_code="myreply1", children=[
+                msg("userB", "2026-08-03T08:00:00Z", id_code="sibB", body="question from B"),
+                msg("userC", "2026-08-05T08:00:00Z", id_code="sibC", body="question from C"),
+            ]),
+        ])
+        branch_entries = list(_pending_entries(branching, drafted_codes=set()))
+        branch_codes = sorted(e["id_code"] for e in branch_entries)
+        assert branch_codes == ["sibB", "sibC"], branch_codes
+        # Drafting one sibling leaves the other still pending.
+        remaining = list(_pending_entries(branching, drafted_codes={"sibC"}))
+        assert [e["id_code"] for e in remaining] == ["sibB"], remaining
 
         # my_articles() must walk `page` explicitly rather than trusting a
         # single per_page=100 call — verified live against the real API that
