@@ -791,3 +791,6 @@
   - Tags: python/git/debugging/ai; python/ai/mcp/debugging. Sources: `drafts/commit-script-assumed-utf8-diff.md`, `drafts/claude-p-argv-too-long.md`.
   - https://dev.to/enjoy_kumawat/my-ai-commit-message-script-assumed-every-file-in-my-repo-is-utf-8-mine-wasnt-55b1
   - https://dev.to/enjoy_kumawat/i-pass-git-diffs-to-my-ai-commit-generator-as-a-command-line-argument-a-big-enough-one-breaks-it-h4l
+
+### 2026-08-12 - DEV.to: 9 comment replies drafted
+- 2026-08-12: 9 replies drafted in `drafts/comment_replies.md` for comments on "I Pass Git Diffs to My AI Commit Generator as a Command-Line Argument. A Big Enough One Breaks It." (1, alexshev), "I Score Every Trending Topic Before Writing About It. I've Never Scored My Own 30 Articles." (2, alexshev + talha_ramzan_3878156fea8c), "My MCP Server's GitHub Token Can Write. The Code That Promises It Never Will Had No Test." (3, alexshev x2 + reidmarlow), "My MCP Server's Two Credential Checks Were Flagged Missing Five Days Ago. Nobody Fixed Them." (1, alexshev), "My Comment-Reply Pipeline Was Feeding Me Garbled HTML Entities Instead of the Actual Comment" (1, alexshev), "I Verify Every Fix in This Repo With a Stubbed Repro. Two of the Most Recent Ones Never Became a Permanent Test." (1, alexshev).
