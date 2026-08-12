@@ -26,7 +26,7 @@
 - Building a Developer Presence MCP server combining GitHub + DEV.to APIs
 - User is already a contributor to `modelcontextprotocol/python-sdk`
 
-**Decision:** Use `FastMCP` from `mcp.server.fastmcp` with `@mcp.tool()` decorators. HTTP calls via stdlib `urllib` (same pattern as update_profile.py).
+**Decision:** Use `FastMCP` from `mcp.server.fastmcp` with `@mcp.tool()` decorators. HTTP calls via stdlib `urllib` (the same stdlib-only HTTP pattern as ADR-001 — see ADR-001's 2026-08-05 correction for what that pattern is actually grounded in; the phrase "same pattern as" here should not be read as pointing at a real, separately-shipped script).
 
 **Alternatives Considered:**
 - Low-level MCP server → rejected (unnecessary complexity for this use case)
