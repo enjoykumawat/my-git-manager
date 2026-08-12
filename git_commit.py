@@ -24,6 +24,17 @@ _STRIP_PATTERNS = [
     r"\bwritten by (an )?(ai|llm|claude|chatgpt|copilot)\b",
     r"\bai-generated\b",
     r"🤖",
+    # The system prompt says "no signatures" but the patterns above only ever
+    # covered the one trailer spelling ("Co-Authored-By:") this project's own
+    # attribution history happened to use — a `Signed-off-by:`, `Reviewed-by:`,
+    # `Assisted-by:`, etc. trailer naming an AI, or the bare
+    # noreply@anthropic.com address on its own line, sailed straight through
+    # this filter untouched. Anchored to the trailer's *value* (not just its
+    # label) so a genuinely unrelated commit about a "reviewed-by:" field or
+    # a "signed-off-by" DCO bot isn't caught by this. See
+    # docs/project_notes/bugs.md 2026-08-12.
+    r"\b(signed-off-by|reviewed-by|acked-by|tested-by|reported-by|co-developed-by|assisted-by)\s*:\s*(claude|chatgpt|copilot|anthropic|ai|llm)\b",
+    r"noreply@anthropic\.com",
 ]
 _STRIP_RE = re.compile("|".join(_STRIP_PATTERNS), re.IGNORECASE)
 
@@ -40,6 +51,16 @@ if "--selftest" in sys.argv:
         ("docs: add claude code hook install instructions", False),
         ("feat: wire up claude code review workflow for prs", False),
         ("fix: handle claude code mcp timeout in server.py", False),
+        # Trailer/signature spellings the old pattern list never covered —
+        # see docs/project_notes/bugs.md 2026-08-12.
+        ("Signed-off-by: Claude <noreply@anthropic.com>", True),
+        ("Reviewed-by: Claude <noreply@anthropic.com>", True),
+        ("Co-Developed-By: Claude", True),
+        ("Assisted-by: AI", True),
+        ("noreply@anthropic.com", True),
+        # Benign vocabulary overlap — must still survive.
+        ("docs: add reviewed-by field to PR template generator", False),
+        ("feat: signed-off-by trailer support for DCO bot", False),
     ]
     for line, expect_stripped in _CASES:
         got = bool(_STRIP_RE.search(line))

@@ -24,7 +24,19 @@ def load_env(path=None):
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     k, v = line.split("=", 1)
-                    os.environ.setdefault(k, v)
+                    # publish_devto.py / reply_comments.py / list_all_published_titles.py's
+                    # load_env() all strip() both sides and strip surrounding quotes off
+                    # the value (v.strip().strip('"').strip("'")) — this one only ever
+                    # did os.environ.setdefault(k, v), keeping this file the one sibling
+                    # that neither quote-strips the value nor whitespace-strips the key.
+                    # A quoted `KEY="value"` .env line (a common convention the other
+                    # three files were clearly hardened for) left the literal quote
+                    # characters in GITHUB_TOKEN/DEV_TO_API here, breaking the
+                    # Authorization/api-key header; `KEY = value` (spaces around `=`)
+                    # put a trailing space in the environment variable NAME, so
+                    # os.environ.get("GITHUB_TOKEN") never finds what was just set.
+                    # See docs/project_notes/bugs.md 2026-08-12.
+                    os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
     except FileNotFoundError:
         pass
 
@@ -130,6 +142,13 @@ _STRIP_PATTERNS = [
     r"\bwritten by (an )?(ai|llm|claude|chatgpt|copilot)\b",
     r"\bai-generated\b",
     r"🤖",
+    # See git_commit.py's twin copy of this list — the patterns above only
+    # ever covered the "Co-Authored-By:" trailer spelling; a Signed-off-by:/
+    # Reviewed-by:/Assisted-by: trailer naming an AI, or the bare
+    # noreply@anthropic.com address, bypassed this filter entirely. See
+    # docs/project_notes/bugs.md 2026-08-12.
+    r"\b(signed-off-by|reviewed-by|acked-by|tested-by|reported-by|co-developed-by|assisted-by)\s*:\s*(claude|chatgpt|copilot|anthropic|ai|llm)\b",
+    r"noreply@anthropic\.com",
 ]
 _STRIP_RE = re.compile("|".join(_STRIP_PATTERNS), re.IGNORECASE)
 
@@ -415,6 +434,15 @@ if __name__ == "__main__":
             ("docs: add claude code hook install instructions", False),
             ("feat: wire up claude code review workflow for prs", False),
             ("fix: handle claude code mcp timeout in server.py", False),
+            # Trailer/signature spellings the old pattern list never covered —
+            # see docs/project_notes/bugs.md 2026-08-12.
+            ("Signed-off-by: Claude <noreply@anthropic.com>", True),
+            ("Reviewed-by: Claude <noreply@anthropic.com>", True),
+            ("Co-Developed-By: Claude", True),
+            ("Assisted-by: AI", True),
+            ("noreply@anthropic.com", True),
+            ("docs: add reviewed-by field to PR template generator", False),
+            ("feat: signed-off-by trailer support for DCO bot", False),
         ]
         for line, expect_stripped in _CASES:
             got = bool(_STRIP_RE.search(line))
@@ -528,6 +556,42 @@ if __name__ == "__main__":
         assert result.startswith("ERROR:") and "argv limit" in result, (
             "an oversized prompt must fail through the ERROR: convention, not reach subprocess"
         )
+
+        # load_env() was the one sibling among four (publish_devto.py,
+        # reply_comments.py, scripts/list_all_published_titles.py all already
+        # strip both sides) that neither quote-stripped the value nor
+        # whitespace-stripped the key. A quoted `KEY="value"` line left the
+        # literal quotes in the credential; a `KEY = value` line (spaces
+        # around `=`) put a trailing space in the environment variable NAME,
+        # so a later os.environ.get("KEY") never finds it. See
+        # docs/project_notes/bugs.md 2026-08-12.
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".env", delete=False) as _f:
+            _f.write('GITHUB_TOKEN="quoted-token-value"\n')
+            _f.write("DEV_TO_API = spaced-key-value\n")
+            _env_path = _f.name
+        try:
+            os.environ.pop("GITHUB_TOKEN", None)
+            os.environ.pop("DEV_TO_API", None)
+            os.environ.pop("DEV_TO_API ", None)
+            load_env(_env_path)
+            assert os.environ.get("GITHUB_TOKEN") == "quoted-token-value", (
+                "quotes around a .env value must be stripped, not left in the credential: "
+                + repr(os.environ.get("GITHUB_TOKEN"))
+            )
+            assert os.environ.get("DEV_TO_API") == "spaced-key-value", (
+                "whitespace around '=' must not leave a trailing space in the env var NAME: "
+                + repr(os.environ.get("DEV_TO_API"))
+            )
+            assert "DEV_TO_API " not in os.environ, (
+                "the key must be stripped — a 'DEV_TO_API ' (trailing space) key means "
+                "the real DEV_TO_API lookup silently misses what .env just set"
+            )
+        finally:
+            os.unlink(_env_path)
+            os.environ.pop("GITHUB_TOKEN", None)
+            os.environ.pop("DEV_TO_API", None)
+            os.environ.pop("DEV_TO_API ", None)
 
         print("selftest ok")
         raise SystemExit(0)

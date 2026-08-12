@@ -58,7 +58,12 @@ def load_env(path):
         line = line.strip()
         if "=" in line and not line.startswith("#"):
             k, v = line.split("=", 1)
-            os.environ.setdefault(k, v.strip().strip('"').strip("'"))
+            # `k` was never stripped — a `KEY = value` .env line (spaces around
+            # `=`, a common human-typed style) put a trailing space in the
+            # environment variable NAME (os.environ.setdefault("DEV_TO_API ", ...)),
+            # so a later os.environ.get("DEV_TO_API") (no trailing space) never
+            # finds it. See docs/project_notes/bugs.md 2026-08-12.
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 
 def already_published(key, title):
@@ -261,6 +266,29 @@ if __name__ == "__main__":
         finally:
             if _saved_dev_key is not None:
                 os.environ["DEV_TO_API"] = _saved_dev_key
+
+        # `k` (the env var NAME half of a parsed .env line) was never
+        # stripped — a `KEY = value` line (spaces around `=`) put a trailing
+        # space in the environment variable name, so a later
+        # os.environ.get("DEV_TO_API") never finds what .env just set. See
+        # docs/project_notes/bugs.md 2026-08-12.
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".env", delete=False) as _f:
+            _f.write("DEV_TO_API = spaced-value\n")
+            _env_path = _f.name
+        try:
+            os.environ.pop("DEV_TO_API", None)
+            os.environ.pop("DEV_TO_API ", None)
+            load_env(_env_path)
+            assert os.environ.get("DEV_TO_API") == "spaced-value", (
+                "whitespace around '=' must not leave a trailing space in the env var NAME: "
+                + repr(os.environ.get("DEV_TO_API"))
+            )
+            assert "DEV_TO_API " not in os.environ
+        finally:
+            os.unlink(_env_path)
+            os.environ.pop("DEV_TO_API", None)
+            os.environ.pop("DEV_TO_API ", None)
 
         print("selftest ok")
     elif len(sys.argv) != 2:

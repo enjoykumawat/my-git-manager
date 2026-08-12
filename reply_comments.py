@@ -34,7 +34,10 @@ def load_env():
         line = line.strip()
         if "=" in line and not line.startswith("#"):
             k, v = line.split("=", 1)
-            os.environ.setdefault(k, v.strip().strip('"').strip("'"))
+            # `k` was never stripped — a `KEY = value` .env line (spaces around
+            # `=`) put a trailing space in the environment variable NAME. See
+            # docs/project_notes/bugs.md 2026-08-12.
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 
 def api(path):
@@ -305,6 +308,33 @@ if __name__ == "__main__":
         assert [a["id"] for a in got] == [1, 2, 3], got
         assert len(_calls) == 3, _calls  # stopped only once a page came back empty
         assert "page=1" in _calls[0] and "page=2" in _calls[1] and "page=3" in _calls[2], _calls
+
+        # `k` (the env var NAME half of a parsed .env line) was never
+        # stripped — a `KEY = value` line (spaces around `=`) put a trailing
+        # space in the environment variable name, so a later
+        # os.environ.get("DEV_TO_API") never finds what .env just set. See
+        # docs/project_notes/bugs.md 2026-08-12. load_env() here has no path
+        # argument (always HERE/.env), so this writes/removes a real
+        # HERE/.env — only safe because this repo never ships one.
+        _env_path = os.path.join(HERE, ".env")
+        assert not os.path.exists(_env_path), (
+            "refusing to overwrite a real .env for this selftest"
+        )
+        with open(_env_path, "w") as _f:
+            _f.write("DEV_TO_API = spaced-value\n")
+        try:
+            os.environ.pop("DEV_TO_API", None)
+            os.environ.pop("DEV_TO_API ", None)
+            load_env()
+            assert os.environ.get("DEV_TO_API") == "spaced-value", (
+                "whitespace around '=' must not leave a trailing space in the env var NAME: "
+                + repr(os.environ.get("DEV_TO_API"))
+            )
+            assert "DEV_TO_API " not in os.environ
+        finally:
+            os.unlink(_env_path)
+            os.environ.pop("DEV_TO_API", None)
+            os.environ.pop("DEV_TO_API ", None)
 
         print("selftest ok")
     elif sys.argv[1:2] == ["pending"]:
