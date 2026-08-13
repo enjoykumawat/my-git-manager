@@ -821,3 +821,7 @@
 
 ### 2026-08-12 - DEV.to: 9 comment replies drafted
 - 2026-08-12: 9 replies drafted in `drafts/comment_replies.md` for comments on "I Pass Git Diffs to My AI Commit Generator as a Command-Line Argument. A Big Enough One Breaks It." (1, alexshev), "I Score Every Trending Topic Before Writing About It. I've Never Scored My Own 30 Articles." (2, alexshev + talha_ramzan_3878156fea8c), "My MCP Server's GitHub Token Can Write. The Code That Promises It Never Will Had No Test." (3, alexshev x2 + reidmarlow), "My MCP Server's Two Credential Checks Were Flagged Missing Five Days Ago. Nobody Fixed Them." (1, alexshev), "My Comment-Reply Pipeline Was Feeding Me Garbled HTML Entities Instead of the Actual Comment" (1, alexshev), "I Verify Every Fix in This Repo With a Stubbed Repro. Two of the Most Recent Ones Never Became a Permanent Test." (1, alexshev).
+
+
+### 2026-08-13 - DEV.to: 6 comment replies drafted
+- 2026-08-13: 6 replies drafted in `drafts/comment_replies.md` for comments on "My Comment-Reply Pipeline Picks One Winner Per Thread. Two Commenters Broke That." (3, reidmarlow + daymondhyper + alexshev), "My Commit Message Filter Only Knew One Way to Say \"Written by Claude\"" (1, knowledgeekza3224), "A Space Before the `=` in My .env File Made a Credential Silently Disappear" (1, alexshev), "My MCP Server Holds Two API Keys. Every Tool Call Runs in the Same Process as Both." (1, sandrog).

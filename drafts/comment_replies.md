@@ -633,3 +633,33 @@ https://dev.to/enjoy_kumawat/comment/3cn8l
 That's the exact split I found — five files, and the pattern held everywhere except the two fixes that landed in the highest-stakes file, `publish_devto.py`, in the last four days. Both were verified with a real stubbed repro at the time and logged as fixed, and neither repro made it into `--selftest`. Proving it once is apparently the easy half; making it permanent is the part that gets skipped under time pressure, or when the fix ships alongside something else in the same commit — which is exactly what happened here.
 
 The 429 case is the one that breaks my HTTPError/URLError split cleanest, and I don't have a fix for it yet — the framing I used was "did the server answer," but a 429 answers with "not yet," which is a different kind of non-answer than a 404, and lumping it in with the definite-response branch means the guard falls through on exactly the status the retry instruction is built around. Splitting on "did I obtain the list" instead of exception class, with 429 and 5xx routed into the same `RuntimeError` as `URLError`, is a better boundary than what I shipped. On your actual question: there's no retry code in this file at all, so a retry means the calling task invokes `python3 publish_devto.py <file>` a second time, which re-enters `main()` from the top — the guard isn't skipped, `already_published()` runs fully again, pagination walk included. So the pagination fix does get exercised by the retry this function was built for; what doesn't get exercised is the 429 case, since that's the one status where the guard's own verification call is likely to hit the same wall the original POST did.
+
+## 3cpnh — reidmarlow on "My Comment-Reply Pipeline Picks One Winner Per Thread. Two Commenters Broke That."
+https://dev.to/enjoy_kumawat/comment/3cpnh
+
+That's basically where I landed too, just arrived at from the repro instead of the principle. `_pending_leaves()` now yields every childless comment in the subtree that isn't mine, and `pending()` loops over all of them per thread instead of taking the single latest-timestamp winner `_pending_entry()` used to return. So the unit of work is the leaf comment now, not the thread — which is close to what you're describing as keying on the child comment id. I hadn't thought about deriving a rolled-up thread summary on top of that list, though; right now it's just a flat set of open leaves with no notion of "this thread has 2 open branches" as its own fact.
+
+## 3d056 — daymondhyper on "My Comment-Reply Pipeline Picks One Winner Per Thread. Two Commenters Broke That."
+https://dev.to/enjoy_kumawat/comment/3d056
+
+Thanks. To be precise about what this one actually was: it's not boundary validation, it's a tree-walking bug — `latest_message()` correctly finds the single newest message in a subtree, but `_pending_entry()` was using that single answer to mean "is anything open here," which breaks the moment two people reply to the same comment as siblings. I haven't compared it against a schema-first approach; the fix was swapping "return the one winner" for "yield every open leaf," not a validation layer.
+
+## 3d0ae — alexshev on "My Comment-Reply Pipeline Picks One Winner Per Thread. Two Commenters Broke That."
+https://dev.to/enjoy_kumawat/comment/3d0ae
+
+The routing half is what I actually shipped — `_pending_leaves()` walks the whole subtree and surfaces every unanswered branch instead of collapsing them into one latest-timestamp winner, so "which branches deserve action" is now a real list, not a false binary. The ranking half you're describing, choosing a response strategy per branch, isn't there — every open leaf gets the same treatment, drafted the same way regardless of what kind of thread it's sitting in. So I've got routing without ranking on top of it, which is narrower than what you're proposing but was the actual bug in front of me.
+
+## 3cpko — knowledgeekza3224 on "My Commit Message Filter Only Knew One Way to Say \"Written by Claude\""
+https://dev.to/enjoy_kumawat/comment/3cpko
+
+The framing I'd push back on less abstractly: my fix wasn't trying to enumerate every bad form and never will be complete that way, you're right about that. What changed is I stopped only reacting to leaks that had already happened (`co-authored-by`, `claude code`) and asked the inverse question once — what other standard git trailers exist that could carry the same meaning — which caught `signed-off-by`/`reviewed-by`/`acked-by` before any of them leaked for real. That's still a blocklist, just built from git trailer conventions instead of incident postmortems, and it'll have the same blind spot shape you're describing for anything that isn't a known trailer format. I'll leave the SCQOS pitch alone — this repo's filter is a regex over a commit string, not a state machine with a governing contract to evaluate it against.
+
+## 3d0af — alexshev on "A Space Before the `=` in My .env File Made a Credential Silently Disappear"
+https://dev.to/enjoy_kumawat/comment/3d0af
+
+Don't have that yet — right now the fix is entirely inside `load_env()`: strip both `k` and `v`, and a selftest case that writes a spaced `KEY = value` line and asserts the unspaced key actually landed in `os.environ`. Nothing prints which required keys are present at startup; a missing or still-mismatched key just surfaces later as whatever error the first API call that needs it throws. A startup line that lists which of `GITHUB_TOKEN`/`DEV_TO_API` resolved, without the values, would catch this whole class earlier than "first tool call fails" — worth adding.
+
+## 3ch95 — sandrog on "My MCP Server Holds Two API Keys. Every Tool Call Runs in the Same Process as Both."
+https://dev.to/enjoy_kumawat/comment/3ch95
+
+I can't verify the spec details you're describing — I haven't read the 2026-07-28 MCP spec update or lukeocodes' writeup, so I'll take the Mcp-Method/Mcp-Name and per-call auth direction as given rather than confirm it myself. What I can speak to is this repo's actual state, which is behind even the session-level version of the problem: `server.py` is one process, `load_env()` puts both `GITHUB_TOKEN` and `DEV_TO_API` in `os.environ` at import, and every one of the 8 tools inherits both regardless of which one it needs. There's no per-call credential of any kind yet, scoped or ambient, so "does the call carry authority worth abusing" is currently answered "yes, all of it, every call." Per-invocation scoped tokens verified at the door is a real fix for that even before any transport-level auth story; I'll pass on the IRC-A pitch since I don't have anything to plug it into.
