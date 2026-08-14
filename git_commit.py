@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """AI commit message generator — reads staged diff, returns a Conventional Commit."""
+import os
 import re
 import subprocess
 import sys
@@ -38,6 +39,22 @@ _STRIP_PATTERNS = [
 ]
 _STRIP_RE = re.compile("|".join(_STRIP_PATTERNS), re.IGNORECASE)
 
+# subprocess.check_output with no env= kwarg hands the claude -p child the
+# FULL parent environment — including GITHUB_TOKEN (repo+user scope, full
+# write) and DEV_TO_API, neither of which this one-shot diff-to-commit-
+# message completion has any legitimate use for. --safe-mode (below) only
+# drops CLAUDE.md/skills/plugins/hooks/MCP-server auto-discovery — ambient
+# environment variables are a separate isolation axis it says nothing
+# about. Verified live: a stub "claude" binary invoked with this exact call
+# shape (no env=) could read both credentials straight out of its own
+# os.environ. See docs/project_notes/bugs.md 2026-08-14.
+_CLAUDE_SUBPROCESS_ENV_EXCLUDE = ("GITHUB_TOKEN", "DEV_TO_API")
+
+
+def _claude_subprocess_env():
+    return {k: v for k, v in os.environ.items() if k not in _CLAUDE_SUBPROCESS_ENV_EXCLUDE}
+
+
 if "--selftest" in sys.argv:
     # Regression cases from the two bugs already logged against this regex:
     # bare-substring over-matching (bugs.md 2026-07-22/26) and the bare
@@ -65,6 +82,30 @@ if "--selftest" in sys.argv:
     for line, expect_stripped in _CASES:
         got = bool(_STRIP_RE.search(line))
         assert got == expect_stripped, (line, got, expect_stripped)
+
+    # _claude_subprocess_env() must drop GITHUB_TOKEN/DEV_TO_API from what
+    # the claude -p child sees, while leaving everything else (PATH, HOME,
+    # ...) inherited so claude -p's own OAuth session lookup still works.
+    # See docs/project_notes/bugs.md 2026-08-14.
+    _saved_gh = os.environ.get("GITHUB_TOKEN")
+    _saved_dev = os.environ.get("DEV_TO_API")
+    os.environ["GITHUB_TOKEN"] = "selftest-fake-gh-token"
+    os.environ["DEV_TO_API"] = "selftest-fake-dev-key"
+    try:
+        _child_env = _claude_subprocess_env()
+        assert "GITHUB_TOKEN" not in _child_env, "GITHUB_TOKEN must not reach the claude -p subprocess"
+        assert "DEV_TO_API" not in _child_env, "DEV_TO_API must not reach the claude -p subprocess"
+        assert "PATH" in _child_env, "PATH must still be inherited"
+    finally:
+        if _saved_gh is not None:
+            os.environ["GITHUB_TOKEN"] = _saved_gh
+        else:
+            os.environ.pop("GITHUB_TOKEN", None)
+        if _saved_dev is not None:
+            os.environ["DEV_TO_API"] = _saved_dev
+        else:
+            os.environ.pop("DEV_TO_API", None)
+
     print("selftest ok")
     raise SystemExit(0)
 
@@ -125,6 +166,7 @@ try:
         text=True,
         timeout=20,
         stderr=subprocess.PIPE,
+        env=_claude_subprocess_env(),
     ).strip()
 except subprocess.TimeoutExpired:
     print("claude -p timed out after 20s", file=sys.stderr)

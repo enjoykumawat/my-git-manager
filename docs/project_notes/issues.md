@@ -2,6 +2,18 @@
 
 ---
 
+### 2026-08-14 - DEV.to: 2 articles published (this run)
+
+- **Status**: Completed (both live; verified via HTTP 200 fetch of each URL)
+- **Description**: Quota check via live API showed 0 published today (this session had no way to distinguish first-run-of-day from second, so published 2 to satisfy both the normal 1-3 range and the "still 0 on second run → at least 2" contingency, landing today's total at 2, under the 5 cap). Given this account's own extensively logged history against a small codebase (126 published articles as of this run), delegated a fresh-angle audit against the full mined-veins catalog in this file plus `bugs.md`. It surfaced two genuinely new findings, both outside every previously-covered mechanism (missing except clauses, pagination gaps, regex over/under-matching, doc-drift, comment-tree walking, credential `KeyError`s, hook install paths), both verified live before drafting and independently re-verified (selftest reruns across all six selftest-bearing scripts, live HTTP 200 checks on both published URLs) before publishing:
+  1. `_claude()` (`server.py`) and its inline twin (`git_commit.py`) call `subprocess.check_output` with no `env=` kwarg, so the `claude -p` child inherits the full parent environment — including `GITHUB_TOKEN` (full write scope) and `DEV_TO_API` — despite the 2026-08-10 `--safe-mode` fix, which isolates CLAUDE.md/skills/plugins/hooks/MCP-server discovery only, a separate axis from ambient env vars. Verified live with a stub `claude` binary; fixed in both files this run (`_claude_subprocess_env()` excludes the two credentials, keeps everything else inherited). Logged in `bugs.md`.
+  2. `publish_devto.py`'s `already_published()` + POST flow has no lock between the duplicate-title check and the write — a TOCTOU race distinct from either of its two prior fixes (both about a single call's own blind spots, not concurrent calls). Verified live with two real threads racing against a shared fake dev.to via a `threading.Barrier`; both passed the check, both posted, two live duplicates resulted. Not fixed: a local lock file would be a no-op given this pipeline's fresh-container-per-session architecture (no shared filesystem across overlapping runs); a real fix needs either scheduler-level serialization or a server-side idempotency key, neither of which this script can add on its own. Logged in `bugs.md` as flagged, not fixed.
+  - Tags: security, python, claudecode, debugging; python, security, debugging, devtools. Sources: `drafts/safe-mode-never-touched-my-env-vars.md`, `drafts/publish-duplicate-check-has-a-race-window.md`. Code changes: `server.py` (`_claude_subprocess_env()` added, wired into `_claude()`, new `--selftest` case), `git_commit.py` (same fix, new `--selftest` case), `docs/project_notes/bugs.md` (two new entries).
+  - https://dev.to/enjoy_kumawat/my-claude-p-call-has-a-safe-mode-flag-for-isolation-it-never-isolated-the-two-api-keys-sitting-4opj
+  - https://dev.to/enjoy_kumawat/my-publish-script-checks-for-duplicates-before-it-posts-nothing-stops-two-checks-from-passing-at-3d7f
+
+---
+
 ### 2026-08-12 - DEV.to: 2 articles published (second run of the day)
 
 - **Status**: Completed (both live; verified via HTTP 200 fetch of each URL)

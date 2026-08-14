@@ -154,6 +154,21 @@ _STRIP_RE = re.compile("|".join(_STRIP_PATTERNS), re.IGNORECASE)
 
 _MAX_CLAUDE_ARG_BYTES = 200_000
 
+# subprocess.check_output with no env= kwarg hands the child the FULL
+# parent environment — including GITHUB_TOKEN (repo+user scope, full write)
+# and DEV_TO_API, which claude -p has no use for at all; its one job here is
+# turning a diff string into a commit-message string. --safe-mode (below)
+# only drops CLAUDE.md/skills/plugins/hooks/MCP-server auto-discovery — it
+# says nothing about ambient environment variables, a completely separate
+# isolation axis. Verified live: a stub "claude" binary invoked with this
+# exact call shape (no env=) could read both credentials straight out of
+# its own os.environ. See docs/project_notes/bugs.md 2026-08-14.
+_CLAUDE_SUBPROCESS_ENV_EXCLUDE = ("GITHUB_TOKEN", "DEV_TO_API")
+
+
+def _claude_subprocess_env():
+    return {k: v for k, v in os.environ.items() if k not in _CLAUDE_SUBPROCESS_ENV_EXCLUDE}
+
 
 def _claude(prompt: str, system: str = None) -> str:
     full = (system + "\n\n" + prompt) if system else prompt
@@ -170,8 +185,11 @@ def _claude(prompt: str, system: str = None) -> str:
         # CLAUDE.md/skills/plugins/hooks/MCP-server auto-discovery without
         # requiring ANTHROPIC_API_KEY (--bare does, and this server has none;
         # see key_facts.md). See docs/project_notes/bugs.md 2026-08-10.
+        # env=_claude_subprocess_env() below closes the separate ambient-
+        # credential-leak gap — see docs/project_notes/bugs.md 2026-08-14.
         raw = subprocess.check_output(
-            ["claude", "-p", "--safe-mode", full], text=True, timeout=20, stderr=subprocess.PIPE
+            ["claude", "-p", "--safe-mode", full], text=True, timeout=20,
+            stderr=subprocess.PIPE, env=_claude_subprocess_env(),
         ).strip()
     except subprocess.TimeoutExpired:
         return "ERROR: claude -p timed out after 20s"
@@ -592,6 +610,36 @@ if __name__ == "__main__":
             os.environ.pop("GITHUB_TOKEN", None)
             os.environ.pop("DEV_TO_API", None)
             os.environ.pop("DEV_TO_API ", None)
+
+        # _claude() used to call subprocess.check_output with no env= kwarg,
+        # so the claude -p child inherited the FULL parent environment —
+        # including GITHUB_TOKEN/DEV_TO_API, which it has no legitimate use
+        # for. --safe-mode isolates config discovery, not ambient env vars.
+        # See docs/project_notes/bugs.md 2026-08-14.
+        _saved_gh = os.environ.get("GITHUB_TOKEN")
+        _saved_dev = os.environ.get("DEV_TO_API")
+        os.environ["GITHUB_TOKEN"] = "selftest-fake-gh-token"
+        os.environ["DEV_TO_API"] = "selftest-fake-dev-key"
+        try:
+            _child_env = _claude_subprocess_env()
+            assert "GITHUB_TOKEN" not in _child_env, (
+                "GITHUB_TOKEN must not be handed to the claude -p subprocess"
+            )
+            assert "DEV_TO_API" not in _child_env, (
+                "DEV_TO_API must not be handed to the claude -p subprocess"
+            )
+            # Everything else claude -p needs to actually run (PATH, HOME,
+            # etc.) must still be present — this isn't a blank env=None.
+            assert "PATH" in _child_env, "PATH must still be inherited"
+        finally:
+            if _saved_gh is not None:
+                os.environ["GITHUB_TOKEN"] = _saved_gh
+            else:
+                os.environ.pop("GITHUB_TOKEN", None)
+            if _saved_dev is not None:
+                os.environ["DEV_TO_API"] = _saved_dev
+            else:
+                os.environ.pop("DEV_TO_API", None)
 
         print("selftest ok")
         raise SystemExit(0)
