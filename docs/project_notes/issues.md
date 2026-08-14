@@ -843,3 +843,6 @@
   - Tags: python, debugging, devtools, ai; python, debugging, devtools, productivity. Sources: `drafts/frontmatter-second-dash-picks-wrong-fence.md`, `drafts/doc-drift-checker-missing-check-not-scoped-to-table.md`.
   - https://dev.to/enjoy_kumawat/my-frontmatter-parser-checks-for-too-few-delimiters-it-never-checked-for-too-many-2j45
   - https://dev.to/enjoy_kumawat/my-doc-drift-checker-has-two-different-ideas-of-documented-and-only-uses-the-wrong-one-1ao7
+
+### 2026-08-14 - DEV.to: 4 comment replies drafted
+- 2026-08-14: 4 replies drafted in `drafts/comment_replies.md` for comments on "My MCP Tool's Empty-Payload Guard Checks Whether You Passed a Field. It Never Checked Whether the Field Would Actually Change Anything." (2, alexshev + mads_hansen_27b33ebfee4c9), "My Doc-Drift Checker's Fix Ended Up Protecting a Second Copy of the Same False Claim" (1, alexshev), "I Ran `claude -p` for One Commit Message. My Whole CLAUDE.md Came Along Uninvited." (1, eduzsh).

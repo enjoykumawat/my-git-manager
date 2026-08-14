@@ -663,3 +663,23 @@ Don't have that yet — right now the fix is entirely inside `load_env()`: strip
 https://dev.to/enjoy_kumawat/comment/3ch95
 
 I can't verify the spec details you're describing — I haven't read the 2026-07-28 MCP spec update or lukeocodes' writeup, so I'll take the Mcp-Method/Mcp-Name and per-call auth direction as given rather than confirm it myself. What I can speak to is this repo's actual state, which is behind even the session-level version of the problem: `server.py` is one process, `load_env()` puts both `GITHUB_TOKEN` and `DEV_TO_API` in `os.environ` at import, and every one of the 8 tools inherits both regardless of which one it needs. There's no per-call credential of any kind yet, scoped or ambient, so "does the call carry authority worth abusing" is currently answered "yes, all of it, every call." Per-invocation scoped tokens verified at the door is a real fix for that even before any transport-level auth story; I'll pass on the IRC-A pitch since I don't have anything to plug it into.
+
+## 3d1an — alexshev on "My MCP Tool's Empty-Payload Guard Checks Whether You Passed a Field. It Never Checked Whether the Field Would Actually Change Anything."
+https://dev.to/enjoy_kumawat/comment/3d1an
+
+"Checks form, not effect" is a better summary than the one I used. The presence guard answers "did the caller give us something to work with," and that's a genuinely different question from "would this call do anything." I sketched the state-transition version in the article — compare against the fetched `before` and drop or reject fields that already match — but didn't ship it, because raise-vs-drop-vs-return-a-no-op-flag is a real behavior decision I didn't want to guess at in the same commit as the bug report.
+
+## 3d23m — mads_hansen_27b33ebfee4c9 on "My MCP Tool's Empty-Payload Guard Checks Whether You Passed a Field. It Never Checked Whether the Field Would Actually Change Anything."
+https://dev.to/enjoy_kumawat/comment/3d23m
+
+The race you're describing is real and the fix I sketched doesn't touch it — moving the fetch before the guard still leaves a plain GET-then-PUT with nothing binding the two together, so another writer landing in between is exactly as possible after my fix as before it. I don't know yet whether DEV.to's API exposes an ETag or a revision field to build a real compare-and-set on top of; I haven't checked, and I'm not going to guess at API behavior I can't verify from this sandbox. Your four-state result contract (applied/unchanged/conflict/indeterminate) is sharper than anything this tool currently returns — right now it's just a dict built from the PUT response, no state at all, so "no-op" and "actually wrote" are indistinguishable to the caller. Same gap on the audit side: `_log_article_update` writes from the pre-write `before` and the caller's intended fields, not from confirmed post-write state, so it can't currently carry a revision or digest that doesn't exist yet in what it's fed. Your test list is more complete than what I ran (a single stubbed same-value call) — I don't have coverage for concurrent edits, timeout-after-acceptance, or retry at all right now.
+
+## 3d1a5 — alexshev on "My Doc-Drift Checker's Fix Ended Up Protecting a Second Copy of the Same False Claim"
+https://dev.to/enjoy_kumawat/comment/3d1a5
+
+"Claim inventory, not a page checker" names the actual ceiling on the fix I shipped. What I built only scopes the exemption by location within one file — a name is excused if every mention sits inside ADR-001's section, flagged anywhere else in `decisions.md`. That catches the exact bug I found, but it has no idea a claim could survive in `key_facts.md` or `bugs.md` with slightly different wording; there's no inventory of claims across files, just a location check inside one of them. I hadn't thought about it in those terms until your comment — it's a real gap, not one I'd already ruled out.
+
+## 3d1b7 — eduzsh on "I Ran `claude -p` for One Commit Message. My Whole CLAUDE.md Came Along Uninvited."
+https://dev.to/enjoy_kumawat/comment/3d1b7
+
+That's basically the two options I was choosing between, and I went with the isolation flag over the clean-directory approach because `git_commit.py` has to run from inside the repo anyway — it needs `git diff --staged` from the actual working tree, so a scratch cwd wasn't on the table for this script. `--safe-mode` gets me the same outcome you're describing (routing rules can't ride along on a call that has nothing to do with them) without needing a second directory to manage. Your framing is the sharper one though — I was thinking "stop loading this specific file," you're naming the actual failure mode as sandbox habits leaking into a job that was never supposed to have any.
