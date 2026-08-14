@@ -352,6 +352,15 @@ def create_article(title: str, body_markdown: str, tags: list[str] = None, publi
 # load_env() above (bugs.md 2026-07-31). An MCP client launches this as a
 # subprocess with no guaranteed cwd, so a bare "logs/..." path scatters this
 # audit log into whatever directory the process happened to start in.
+#
+# This file is deliberately local-only — see decisions.md ADR-006. update_article
+# is only ever invoked through Claude Desktop on the machine this server runs on;
+# the scheduled publishing routine is a separate, fresh-per-container cloud
+# session that calls publish_devto.py directly and never touches this tool or
+# this file. Nothing in this repo's workflow ships logs/ anywhere else, so
+# "the log" means "this one machine's disk," not a durable, cross-environment
+# audit trail. See docs/project_notes/issues.md 2026-07-31 for the gap this
+# closes: that finding was logged as open and never turned into a fix until now.
 _ARTICLE_UPDATE_LOG = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "logs", "article_updates.jsonl"
 )
@@ -375,7 +384,13 @@ def update_article(article_id: int, title: str = None, body_markdown: str = None
     """Update an existing DEV.to article by id. Fetches the article's current
     state first so the diff is known and logged before the write lands —
     a wrong or hallucinated article_id used to silently overwrite whatever
-    it pointed at with no trace. See bugs.md 2026-07-27."""
+    it pointed at with no trace. See bugs.md 2026-07-27.
+
+    The trace lands in logs/article_updates.jsonl next to this file, on
+    whatever machine runs this MCP server — it is NOT committed to git and
+    is NOT visible to the separate cloud container that publishes articles
+    on a schedule. Treat it as local debugging history, not a durable or
+    cross-environment audit log. See decisions.md ADR-006."""
     article = {}
     if title is not None:
         article["title"] = title

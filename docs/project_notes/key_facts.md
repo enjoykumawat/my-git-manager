@@ -32,6 +32,7 @@
 | `hooks/prepare-commit-msg` | Git hook: captures `git_commit.py`'s output before writing it to the commit editor, so a failed AI call leaves git's own template alone instead of wiping it (`bugs.md` 2026-07-23) |
 | `scripts/check_key_facts.py` | Flags any top-level/`scripts/`/`hooks/` script not referenced anywhere in this table (added 2026-07-25), any table row naming a file that doesn't exist (added 2026-07-28), and — as of 2026-08-05 — any file-shaped reference in `decisions.md` that doesn't exist anywhere in the repo (`issues.md` deliberately excluded — append-only historical log, see ADR-005) |
 | `scripts/list_all_published_titles.py` | Paginates `/api/articles/me/published` to print every title this account has ever published, not just the first `per_page` page — the scheduled publishing task's own Step 1 URL returns only the most recent page and Step 2 treats it as "the full list" (`bugs.md` 2026-08-04) |
+| `scripts/score_published.py` | Scores this account's own published articles per tag with the same `reactions + 3*comments` formula Step 2 uses on trending posts, ranked by mean (not total) score — built for the per-category tracking gap flagged 2026-08-11 and left unbuilt until 2026-08-14 |
 | `scripts/install-hooks.sh` | Copies `hooks/*` into `.git/hooks/` for the current clone — `hooks/` alone has no effect on git; `core.hooksPath`/`.git/hooks/` are machine-local and don't survive a fresh clone or container checkout. Run once per fresh clone/container before relying on `hooks/prepare-commit-msg` (`bugs.md` 2026-07-26) |
 | `requirements.txt` | Only dep: `mcp[cli]` |
 | `.env` | API keys — never committed |
@@ -48,6 +49,10 @@
 - **DEV.to API:** `https://dev.to/api` — auth via `api-key` header
 - **DEV.to API write limits (verified 2026-07-18):** cannot create comments (`POST /api/comments` → 404) and cannot create reactions as a normal user (`POST /api/reactions` → 401 even with valid key + Forem v1 Accept header). Comment replies must be pasted manually — hence the draft-only pipeline.
 - **Comment `id_code`** = numeric comment id in base 26; comment URL is `https://dev.to/enjoy_kumawat/comment/<id_code>`
+
+## Local-only files (never committed, on purpose)
+
+- `logs/article_updates.jsonl` — `update_article`'s write-audit trail, written next to `server.py` on whichever machine runs the MCP server. Not in the Project Files table above because it doesn't exist until `update_article` is first called, and `scripts/check_key_facts.py`'s phantom-file check would flag a table row for a file that isn't on disk yet. `.gitignore`'d as `logs/`. See `decisions.md` ADR-006 for why this stays local instead of becoming a shared/committed log.
 
 ## Running the Server
 

@@ -7,3 +7,7 @@ drafts/*
 .omc/
 .claude/
 CLAUDE.md
+# logs/article_updates.jsonl (server.py's update_article audit trail) is
+# deliberately local-only — see decisions.md ADR-006. Explicit now instead
+# of the accidental "never happens to get git add -A'd" it was before.
+logs/
