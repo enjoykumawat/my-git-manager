@@ -870,3 +870,6 @@
 
 ### 2026-08-14 - DEV.to: 4 comment replies drafted
 - 2026-08-14: 4 replies drafted in `drafts/comment_replies.md` for comments on "My MCP Tool's Empty-Payload Guard Checks Whether You Passed a Field. It Never Checked Whether the Field Would Actually Change Anything." (2, alexshev + mads_hansen_27b33ebfee4c9), "My Doc-Drift Checker's Fix Ended Up Protecting a Second Copy of the Same False Claim" (1, alexshev), "I Ran `claude -p` for One Commit Message. My Whole CLAUDE.md Came Along Uninvited." (1, eduzsh).
+
+### 2026-08-15 - DEV.to: 2 comment replies drafted
+- 2026-08-15: 2 replies drafted in `drafts/comment_replies.md` for comments on "My Publish Script Checks for Duplicates Before It Posts. Nothing Stops Two Checks From Passing at Once." (1, alexshev), "I \"Verified Live\" the Same Git Hook Fix Three Times. I Never Once Let Git Decide Whether to Run It." (1, eduzsh).
