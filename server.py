@@ -1,3 +1,4 @@
+import hashlib
 import os
 import json
 import re
@@ -366,6 +367,32 @@ _ARTICLE_UPDATE_LOG = os.path.join(
 )
 
 
+# The 2026-08-15 confirm gate (bugs.md, this same date) stops an UNCONFIRMED
+# write to a published article — it never asked whether the article the
+# confirmed write is about to fire against is still the article the diff
+# was actually reviewed on. A real reader comment on this exact article, the
+# same day it published (mads_hansen_27b33ebfee4c9, comment 3d3hj), named
+# the gap live: "the preview is computed from version A, another editor
+# changes the article to B, and the agent then sends the approved write...
+# the diff a person reviewed is no longer necessarily the write that
+# lands." Verified: a preview call, a live edit landing in between (someone
+# else, or a different tool call, changing title/body_markdown out of
+# band), then the originally-approved confirm=True call still fires —
+# `before` is re-fetched fresh on that call, so the tool *has* the
+# information the content moved, but nothing ever compared it against what
+# was shown during the preview, so the intervening edit is silently
+# clobbered with no warning. This fingerprint lets a caller that captured
+# the preview's `fingerprint` prove, on the later confirm=True call, that
+# nothing changed underneath it in the meantime. Deliberately optional
+# (`expected_fingerprint=None` skips the check) rather than mandatory: a
+# caller that never previewed at all — confirm=True on the first call,
+# knowingly forcing a specific title/body regardless of current live
+# content — is a legitimate, different use case this shouldn't block.
+def _article_fingerprint(before):
+    basis = "\x1f".join(f"{f}={before.get(f)!r}" for f in ("title", "body_markdown"))
+    return hashlib.sha256(basis.encode()).hexdigest()[:16]
+
+
 def _log_article_update(article_id, before, fields_changed, after):
     os.makedirs(os.path.dirname(_ARTICLE_UPDATE_LOG), exist_ok=True)
     entry = {"article_id": article_id, "fields_changed": sorted(fields_changed), "url": after.get("url")}
@@ -381,7 +408,8 @@ def _log_article_update(article_id, before, fields_changed, after):
 
 @mcp.tool()
 def update_article(article_id: int, title: str = None, body_markdown: str = None,
-                    published: bool = None, confirm: bool = False) -> dict:
+                    published: bool = None, confirm: bool = False,
+                    expected_fingerprint: str = None) -> dict:
     """Update an existing DEV.to article by id. Fetches the article's current
     state first so the diff is known and logged before the write lands —
     a wrong or hallucinated article_id used to silently overwrite whatever
@@ -400,7 +428,21 @@ def update_article(article_id: int, title: str = None, body_markdown: str = None
     call without it returns the proposed diff instead of sending the PUT,
     same shape as the real return value minus "applied". Writes that don't
     touch live content (drafts, or published/title/body all None-equivalent
-    no-ops) never needed a gate and don't get one. See bugs.md 2026-08-15."""
+    no-ops) never needed a gate and don't get one. See bugs.md 2026-08-15.
+
+    confirm=True on its own only proves the CALLER meant to write — it says
+    nothing about whether the article itself is still in the state that
+    write decision was actually made about. The preview response (the one
+    returned when confirm=False) includes a "fingerprint" of the article's
+    current title/body_markdown; pass that back as expected_fingerprint on
+    the later confirm=True call and a live edit that landed in between
+    (someone else editing the article on-site, a different tool call, a
+    second concurrent session) is caught and blocked instead of silently
+    overwritten — the write is refused as stale and a fresh diff/fingerprint
+    is returned instead. Omitting expected_fingerprint skips this check
+    entirely (e.g. a caller that never previewed and is knowingly forcing a
+    specific title/body regardless of current content) — this is opt-in,
+    not mandatory. See bugs.md 2026-08-15 (second entry)."""
     article = {}
     if title is not None:
         article["title"] = title
@@ -415,6 +457,29 @@ def update_article(article_id: int, title: str = None, body_markdown: str = None
         )
     before = _dev(f"/articles/{article_id}")
     live_content_write = before.get("published") and ("title" in article or "body_markdown" in article)
+    fingerprint = _article_fingerprint(before)
+    if live_content_write and expected_fingerprint is not None and expected_fingerprint != fingerprint:
+        # The confirm=True call re-fetches `before` fresh, same as any other
+        # call — it HAS the evidence the article changed since the caller's
+        # last preview, it just never compared against it before this fix.
+        # A mismatch here means whatever diff was reviewed and approved no
+        # longer describes the live article; proceeding would silently
+        # clobber whatever changed it, so this fails closed regardless of
+        # confirm.
+        return {
+            "id": article_id,
+            "url": before.get("url"),
+            "applied": False,
+            "reason": "stale — the live article changed since the diff you approved was "
+                      "generated (expected_fingerprint doesn't match the current article); "
+                      "re-preview (call again without confirm) and re-approve against the "
+                      "current content before writing",
+            "fingerprint": fingerprint,
+            "diff": {
+                field: {"before": before.get(field), "after": article.get(field)}
+                for field in article
+            },
+        }
     if live_content_write and not confirm:
         return {
             "id": article_id,
@@ -422,6 +487,7 @@ def update_article(article_id: int, title: str = None, body_markdown: str = None
             "applied": False,
             "reason": "article is currently published — title/body_markdown changes "
                       "require confirm=True (DEV.to has no version history to undo this)",
+            "fingerprint": fingerprint,
             "diff": {
                 field: {"before": before.get(field), "after": article.get(field)}
                 for field in article
@@ -647,6 +713,62 @@ if __name__ == "__main__":
             _put_calls["n"] = 0
             publish_toggle = update_article(42, published=False)
             assert publish_toggle["applied"] is True, "a published-flag-only write must not require confirm"
+            assert _put_calls["n"] == 1
+
+            # confirm=True stops an UNCONFIRMED write — it says nothing about
+            # whether the article is still what the caller actually reviewed.
+            # A reader comment on this exact article the same day it
+            # published (mads_hansen_27b33ebfee4c9, comment 3d3hj) named the
+            # gap live: preview computed from version A, someone else edits
+            # it to B, the originally-approved write still lands and
+            # silently clobbers B. expected_fingerprint closes it: captured
+            # from the preview, it must still match the article's CURRENT
+            # state (re-fetched fresh on every call, confirmed or not) or
+            # the write is refused as stale, even with confirm=True. See
+            # bugs.md 2026-08-15 (second entry).
+            _live_article["published"] = True
+            _live_article["title"] = "reviewed title"
+            _put_calls["n"] = 0
+            preview = update_article(42, title="agent's proposed title")
+            assert preview["applied"] is False
+            stale_fp = preview["fingerprint"]
+
+            # Someone/something else edits the article out of band, after
+            # the preview but before the caller's approved confirm=True call.
+            _live_article["title"] = "a manual edit that landed in between"
+
+            stale_confirmed = update_article(
+                42, title="agent's proposed title", confirm=True,
+                expected_fingerprint=stale_fp,
+            )
+            assert stale_confirmed["applied"] is False, (
+                "a confirmed write against a stale fingerprint must be refused, "
+                "not silently overwrite whatever changed in between"
+            )
+            assert "stale" in stale_confirmed["reason"].lower(), stale_confirmed
+            assert _put_calls["n"] == 0, "a stale confirm must never reach the PUT"
+
+            # Re-preview against the now-current state, then approve with the
+            # fresh fingerprint — this must go through.
+            fresh_preview = update_article(42, title="agent's proposed title")
+            fresh_confirmed = update_article(
+                42, title="agent's proposed title", confirm=True,
+                expected_fingerprint=fresh_preview["fingerprint"],
+            )
+            assert fresh_confirmed["applied"] is True
+            assert _put_calls["n"] == 1
+
+            # Omitting expected_fingerprint entirely must behave exactly as
+            # before this fix — opt-in, not mandatory (bugs.md 2026-08-15,
+            # second entry: a caller that never previewed is a legitimate,
+            # different case, e.g. knowingly forcing a title regardless of
+            # current content).
+            _live_article["title"] = "yet another out-of-band edit"
+            _put_calls["n"] = 0
+            no_fingerprint_confirm = update_article(42, title="forced title", confirm=True)
+            assert no_fingerprint_confirm["applied"] is True, (
+                "confirm=True with no expected_fingerprint must still apply, unchanged behavior"
+            )
             assert _put_calls["n"] == 1
         finally:
             globals()["_dev"] = _orig_dev
