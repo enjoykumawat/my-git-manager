@@ -12,12 +12,31 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 KEY_FACTS = ROOT / "docs" / "project_notes" / "key_facts.md"
 DECISIONS = ROOT / "docs" / "project_notes" / "decisions.md"
+BUGS = ROOT / "docs" / "project_notes" / "bugs.md"
 # issues.md is deliberately excluded: it's an append-only historical log
 # (ADR-005), so a past entry naming a since-removed file is a legitimate
-# record, not stale-and-currently-asserted fact. decisions.md is not
-# append-only in that sense — an ADR's prose is presented as still true.
+# record, not stale-and-currently-asserted fact. decisions.md and bugs.md
+# are not append-only in that sense — each entry's prose (root cause,
+# solution, prevention) is presented as still true today, not as a dated
+# snapshot, even though the file itself grows by appending new entries.
 DECISIONS_SEARCH_DIRS = (ROOT, ROOT / "docs" / "project_notes", ROOT / "drafts",
                           ROOT / "scripts", ROOT / "hooks")
+# Reused for bugs.md — same repo-relative footprint a real script could live in.
+BUGS_SEARCH_DIRS = DECISIONS_SEARCH_DIRS
+# Filenames bugs.md legitimately names without them existing on disk right
+# now: two (update_profile.py, template.md) are the same ADR-001 phantom
+# files decisions.md explains never existed (see DECISIONS_KNOWN_HISTORICAL
+# below) — bugs.md's 2026-08-05 entry references the same non-existent
+# names while describing that history, not asserting them as real.
+# post_article.py is different: it WAS real and was intentionally removed
+# 2026-07-16 (superseded by publish_devto.py) — key_facts.md's Project
+# Files table documents the removal by name. stop-hook-git-check.sh lives
+# at ~/.claude/, outside this repo entirely, by design — it's a global
+# Claude Code hook, not a repo script, so no repo-relative search dir will
+# ever contain it.
+BUGS_KNOWN_HISTORICAL_OR_EXTERNAL = {
+    "update_profile.py", "template.md", "post_article.py", "stop-hook-git-check.sh",
+}
 # Named only inside ADR-001's 2026-08-05 correction, to explain that they were
 # never real — not asserted as current fact, so not phantom-in-the-flagged sense.
 # Same shape as key_facts.md's .env exception below.
@@ -109,6 +128,36 @@ def decisions_phantom_files(text=None):
     return phantom
 
 
+def bugs_referenced_files(text=None):
+    """Filename-shaped tokens in bugs.md's prose. Same raw-text scan as
+    decisions_referenced_files() — bugs.md entries name files inline in
+    prose (backtick-wrapped or not), not in a structured table."""
+    if text is None:
+        text = BUGS.read_text()
+    return sorted(set(re.findall(r"\b[\w-]+\.(?:py|sh|md)\b", text)))
+
+
+def bugs_phantom_files(text=None):
+    """Filenames bugs.md names as if they're real repo files, that aren't
+    anywhere in the repo and aren't in the known-historical/external
+    allowlist above. Unlike decisions_phantom_files(), there's no ADR-001-
+    style single section to scope an exemption to — bugs.md's historical
+    names are legitimately spread across whichever entry first explained
+    them, so the allowlist here is unconditional by name, same shape as
+    key_facts.md's own DECISIONS_KNOWN_HISTORICAL was before the 2026-08-12
+    scoping fix. That's an accepted, narrower risk: this allowlist only
+    grows when a name is deliberately added with a comment explaining why,
+    not automatically."""
+    if text is None:
+        text = BUGS.read_text()
+
+    def exists_anywhere(name):
+        return any((d / name).exists() for d in BUGS_SEARCH_DIRS)
+
+    return [f for f in bugs_referenced_files(text)
+            if f not in BUGS_KNOWN_HISTORICAL_OR_EXTERNAL and not exists_anywhere(f)]
+
+
 if "--selftest" in sys.argv:
     # Regression case for bugs.md 2026-08-12: DECISIONS_KNOWN_HISTORICAL
     # used to be a blanket by-name exemption, so ADR-002 asserting "(same
@@ -162,6 +211,30 @@ References server.py once.
     #    the real key_facts.md (pre-existing behavior, unchanged by this fix).
     assert "server.py" in project_files_table_rows()
     assert "server.py" in documented_files()
+
+    # 6-8. bugs.md drift check (new 2026-08-15): this file was the only one
+    # of the three current-fact memory files with zero phantom-file
+    # checking — key_facts.md and decisions.md both had one, bugs.md had
+    # none, and nothing documented that as an intentional exclusion the way
+    # ADR-005 documents issues.md's.
+    _BUGS_CLEAN = "### 2026-01-01 - fixed a bug in server.py\n\nSee decisions.md.\n"
+    _BUGS_PHANTOM = "### 2026-01-01 - fixed a bug in never_existed.py\n\nSee server.py.\n"
+    _BUGS_HISTORICAL = (
+        "### 2026-08-05 - explains post_article.py was removed 2026-07-16, "
+        "and that update_profile.py never existed\n"
+    )
+    assert bugs_phantom_files(_BUGS_CLEAN) == []
+    assert bugs_phantom_files(_BUGS_PHANTOM) == ["never_existed.py"]
+    assert bugs_phantom_files(_BUGS_HISTORICAL) == [], (
+        "known-historical/external names must stay exempt regardless of section"
+    )
+    # And the real bugs.md, as it stands today, must actually be clean —
+    # this fix is only meaningful if it runs against real content, not just
+    # fixtures.
+    assert bugs_phantom_files() == [], (
+        "the real bugs.md currently references a file this repo can't find: "
+        + str(bugs_phantom_files())
+    )
     print("selftest ok")
     raise SystemExit(0)
 
@@ -187,6 +260,12 @@ def main():
         ok = False
         print("decisions.md references files that don't exist anywhere in the repo:")
         for f in decisions_missing:
+            print(f"  - {f}")
+    bugs_missing = bugs_phantom_files()
+    if bugs_missing:
+        ok = False
+        print("bugs.md references files that don't exist anywhere in the repo:")
+        for f in bugs_missing:
             print(f"  - {f}")
     if ok:
         print("key_facts.md is in sync with repo scripts.")

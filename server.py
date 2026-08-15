@@ -380,7 +380,8 @@ def _log_article_update(article_id, before, fields_changed, after):
 
 
 @mcp.tool()
-def update_article(article_id: int, title: str = None, body_markdown: str = None, published: bool = None) -> dict:
+def update_article(article_id: int, title: str = None, body_markdown: str = None,
+                    published: bool = None, confirm: bool = False) -> dict:
     """Update an existing DEV.to article by id. Fetches the article's current
     state first so the diff is known and logged before the write lands —
     a wrong or hallucinated article_id used to silently overwrite whatever
@@ -390,7 +391,16 @@ def update_article(article_id: int, title: str = None, body_markdown: str = None
     whatever machine runs this MCP server — it is NOT committed to git and
     is NOT visible to the separate cloud container that publishes articles
     on a schedule. Treat it as local debugging history, not a durable or
-    cross-environment audit log. See decisions.md ADR-006."""
+    cross-environment audit log. See decisions.md ADR-006.
+
+    Overwriting title/body_markdown on an article that is CURRENTLY LIVE
+    (published=true) is irreversible in any meaningful sense — DEV.to keeps
+    no version history, and the diff/log above only records that a change
+    happened, after it already has. That write requires confirm=True; a
+    call without it returns the proposed diff instead of sending the PUT,
+    same shape as the real return value minus "applied". Writes that don't
+    touch live content (drafts, or published/title/body all None-equivalent
+    no-ops) never needed a gate and don't get one. See bugs.md 2026-08-15."""
     article = {}
     if title is not None:
         article["title"] = title
@@ -404,12 +414,26 @@ def update_article(article_id: int, title: str = None, body_markdown: str = None
             "(title/body_markdown/published all None)"
         )
     before = _dev(f"/articles/{article_id}")
+    live_content_write = before.get("published") and ("title" in article or "body_markdown" in article)
+    if live_content_write and not confirm:
+        return {
+            "id": article_id,
+            "url": before.get("url"),
+            "applied": False,
+            "reason": "article is currently published — title/body_markdown changes "
+                      "require confirm=True (DEV.to has no version history to undo this)",
+            "diff": {
+                field: {"before": before.get(field), "after": article.get(field)}
+                for field in article
+            },
+        }
     result = _dev(f"/articles/{article_id}", method="PUT", data={"article": article})
     _log_article_update(article_id, before, article.keys(), result)
     return {
         "id": result["id"],
         "url": result.get("url"),
         "published": result.get("published"),
+        "applied": True,
         # only the fields actually written show up here — previously this was
         # a fixed {title, published} pair regardless of what changed, so a
         # body_markdown-only write showed an all-unchanged diff. See bugs.md
@@ -579,6 +603,53 @@ if __name__ == "__main__":
             assert False, "_gh must reject a data payload, not silently attach it to a GET"
         except ValueError as e:
             assert "read-only" in str(e), e
+
+        # update_article's fetch-before-write diff/log (bugs.md 2026-07-27)
+        # records that a live article's content changed, after the PUT that
+        # changed it already landed — nothing upstream of the PUT ever asked
+        # whether that write should happen. A wrong article_id or a stale
+        # cached title still overwrites a published post with zero chance to
+        # back out, same as before that fix. confirm=True is now required to
+        # write title/body_markdown onto an article the API reports as
+        # already published; the unconfirmed call must return the proposed
+        # diff instead of touching the network. See bugs.md 2026-08-15.
+        _live_article = {"id": 42, "url": "https://x/42", "published": True,
+                          "title": "old title", "body_markdown": "old body"}
+        _put_calls = {"n": 0}
+
+        def _fake_dev_update(path, method="GET", data=None):
+            if method == "GET":
+                return dict(_live_article)
+            _put_calls["n"] += 1
+            return {"id": 42, "url": "https://x/42", "published": True, **data["article"]}
+
+        globals()["_dev"] = _fake_dev_update
+        try:
+            unconfirmed = update_article(42, title="new title")
+            assert unconfirmed["applied"] is False, "unconfirmed write to a live article must not apply"
+            assert _put_calls["n"] == 0, "unconfirmed write must never reach the PUT"
+            assert unconfirmed["diff"]["title"] == {"before": "old title", "after": "new title"}
+
+            confirmed = update_article(42, title="new title", confirm=True)
+            assert confirmed["applied"] is True
+            assert _put_calls["n"] == 1, "confirmed write must actually PUT"
+
+            # A draft (published=False) is never gated — nothing live to lose.
+            _live_article["published"] = False
+            _put_calls["n"] = 0
+            draft_write = update_article(42, title="draft edit")
+            assert draft_write["applied"] is True, "unpublished drafts must not require confirm"
+            assert _put_calls["n"] == 1
+
+            # Toggling `published` alone (no title/body change) isn't a
+            # content overwrite either — must not require confirm.
+            _live_article["published"] = True
+            _put_calls["n"] = 0
+            publish_toggle = update_article(42, published=False)
+            assert publish_toggle["applied"] is True, "a published-flag-only write must not require confirm"
+            assert _put_calls["n"] == 1
+        finally:
+            globals()["_dev"] = _orig_dev
 
         # claude -p takes its prompt as a single argv element; a diff large
         # enough to push the combined prompt over the OS's ARG_MAX previously
