@@ -406,6 +406,39 @@ def _log_article_update(article_id, before, fields_changed, after):
         f.write(json.dumps(entry) + "\n")
 
 
+def _duplicate_published_title(article_id, final_title, final_published):
+    """Another already-published article (a DIFFERENT id) that would end up
+    with the exact same title as this write, if final_published is true —
+    or None.
+
+    create_article's own duplicate-title guard (issues.md 2026-08-03) and
+    publish_devto.py's already_published() both stop a POST from creating a
+    second live article with a title that's already live. Neither one is
+    reachable from here: update_article is a separate codepath to the exact
+    same live-article state (published=true, a title, a body) and never got
+    either version of this check. Concretely: create a draft via
+    create_article(title="X", published=False) — the duplicate check is
+    skipped entirely for drafts, by design — create a second draft with the
+    identical title the same way, then call update_article(id, published=True)
+    on each one. Nothing here has ever compared the two; both go live with
+    the same title, the exact outcome create_article's own guard exists to
+    prevent for its own codepath. Verified live with a stubbed _dev: a draft
+    whose title already matches a different, already-published article's
+    title was published via update_article(article_id, published=True) with
+    zero duplicate-title check anywhere in the call trace — one GET, one PUT,
+    no /articles/me/published lookup at all. See docs/project_notes/bugs.md
+    2026-08-15 (third entry).
+    """
+    if not final_published or not final_title:
+        return None
+    for a in _all_published_titles():
+        if a.get("id") == article_id:
+            continue
+        if a.get("title") == final_title:
+            return a
+    return None
+
+
 @mcp.tool()
 def update_article(article_id: int, title: str = None, body_markdown: str = None,
                     published: bool = None, confirm: bool = False,
@@ -442,7 +475,15 @@ def update_article(article_id: int, title: str = None, body_markdown: str = None
     is returned instead. Omitting expected_fingerprint skips this check
     entirely (e.g. a caller that never previewed and is knowingly forcing a
     specific title/body regardless of current content) — this is opt-in,
-    not mandatory. See bugs.md 2026-08-15 (second entry)."""
+    not mandatory. See bugs.md 2026-08-15 (second entry).
+
+    A write that would leave this article published with the exact same
+    title as a DIFFERENT already-published article is refused outright
+    (applied: False, no confirm/fingerprint override) — most commonly hit by
+    publishing a draft (published=True) whose title happens to duplicate one
+    that's already live, since create_article's own duplicate-title guard
+    only ever runs for articles created with published=True and is skipped
+    entirely for drafts. See bugs.md 2026-08-15 (third entry)."""
     article = {}
     if title is not None:
         article["title"] = title
@@ -456,6 +497,22 @@ def update_article(article_id: int, title: str = None, body_markdown: str = None
             "(title/body_markdown/published all None)"
         )
     before = _dev(f"/articles/{article_id}")
+    final_title = article.get("title", before.get("title"))
+    final_published = article.get("published", before.get("published"))
+    duplicate = _duplicate_published_title(article_id, final_title, final_published)
+    if duplicate is not None:
+        return {
+            "id": article_id,
+            "url": before.get("url"),
+            "applied": False,
+            "reason": (
+                f"another published article (id {duplicate.get('id')}) already has "
+                "this exact title — refusing to publish/rename onto a duplicate "
+                "title; create_article has this guard for new articles, this is "
+                "the same guard for update_article's publish/rename path"
+            ),
+            "duplicate_of": {"id": duplicate.get("id"), "url": duplicate.get("url")},
+        }
     live_content_write = before.get("published") and ("title" in article or "body_markdown" in article)
     fingerprint = _article_fingerprint(before)
     if live_content_write and expected_fingerprint is not None and expected_fingerprint != fingerprint:
@@ -684,6 +741,11 @@ if __name__ == "__main__":
         _put_calls = {"n": 0}
 
         def _fake_dev_update(path, method="GET", data=None):
+            if method == "GET" and path.startswith("/articles/me/published"):
+                # _duplicate_published_title()'s own lookup (bugs.md
+                # 2026-08-15, third entry) — no other published articles in
+                # this fixture unless a case below overrides it.
+                return []
             if method == "GET":
                 return dict(_live_article)
             _put_calls["n"] += 1
@@ -769,6 +831,78 @@ if __name__ == "__main__":
             assert no_fingerprint_confirm["applied"] is True, (
                 "confirm=True with no expected_fingerprint must still apply, unchanged behavior"
             )
+            assert _put_calls["n"] == 1
+
+            # create_article's duplicate-title guard (issues.md 2026-08-03)
+            # only ever runs on ITS OWN codepath — a fresh POST made with
+            # published=True. update_article can reach the identical live
+            # outcome (this article ends up published with a title another,
+            # different article already has) two other ways: publishing a
+            # draft (published=False -> True) whose title collides, or
+            # renaming an already-published article onto another published
+            # article's exact title. Neither ever went through any
+            # duplicate-title check before this fix. See bugs.md 2026-08-15
+            # (third entry).
+            def _dev_with_other_published(other_id, other_title):
+                def _f(path, method="GET", data=None):
+                    if method == "GET" and path.startswith("/articles/me/published"):
+                        if "page=1" in path:
+                            return [{"id": other_id, "title": other_title, "url": f"https://x/{other_id}"}]
+                        return []
+                    if method == "GET":
+                        return dict(_live_article)
+                    _put_calls["n"] += 1
+                    return {"id": 42, "url": "https://x/42", "published": True, **data["article"]}
+                return _f
+
+            # Publishing a draft whose title collides with a DIFFERENT
+            # already-published article — the actual reachable-today case:
+            # create_article's own guard is skipped entirely for drafts
+            # (published=False at creation), so two drafts can freely share
+            # a title; update_article(published=True) is what would have
+            # made that collision live with no check at all.
+            _live_article["published"] = False
+            _live_article["title"] = "Duplicate Title"
+            _put_calls["n"] = 0
+            globals()["_dev"] = _dev_with_other_published(99, "Duplicate Title")
+            try:
+                dup_publish = update_article(42, published=True)
+            finally:
+                globals()["_dev"] = _fake_dev_update
+            assert dup_publish["applied"] is False, (
+                "publishing a draft onto a title another published article "
+                "already has must be refused, not silently create a live duplicate"
+            )
+            assert _put_calls["n"] == 0, "a duplicate-title publish must never reach the PUT"
+            assert dup_publish["duplicate_of"]["id"] == 99, dup_publish
+
+            # Same collision, but the current article is already published
+            # and only its title is being changed (rename onto a duplicate)
+            # — must be refused too, not just the draft->published case.
+            _live_article["published"] = True
+            _live_article["title"] = "Original Title"
+            _put_calls["n"] = 0
+            globals()["_dev"] = _dev_with_other_published(99, "Duplicate Title")
+            try:
+                dup_rename = update_article(42, title="Duplicate Title")
+            finally:
+                globals()["_dev"] = _fake_dev_update
+            assert dup_rename["applied"] is False, "renaming onto a duplicate published title must be refused"
+            assert _put_calls["n"] == 0
+
+            # A title match against the SAME article_id (i.e. itself, e.g.
+            # the article is already published under this exact title and
+            # only body_markdown is being changed) must not be treated as a
+            # duplicate of itself.
+            _live_article["published"] = True
+            _live_article["title"] = "Duplicate Title"
+            _put_calls["n"] = 0
+            globals()["_dev"] = _dev_with_other_published(42, "Duplicate Title")
+            try:
+                self_match = update_article(42, body_markdown="new body", confirm=True)
+            finally:
+                globals()["_dev"] = _fake_dev_update
+            assert self_match["applied"] is True, "matching against its own id is not a duplicate"
             assert _put_calls["n"] == 1
         finally:
             globals()["_dev"] = _orig_dev
