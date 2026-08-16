@@ -693,3 +693,23 @@ That's exactly the boundary problem I ran into — I actually built a lock-file 
 https://dev.to/enjoy_kumawat/comment/3d2n6
 
 That's a sharper way to say what I was circling — "green because it re-ran the happy path it already knows" describes all three prior passes at this hook better than anything I wrote in the piece. Every one of them called the script directly with `subprocess.run`, which tests the path arithmetic fine but never puts git in the loop that actually decides whether to invoke the hook at all — I'd have done the same thing again if I hadn't run `git ls-files -s` for an unrelated reason and noticed the mode bit. I don't have a general defense against that failure mode yet, just a narrower one: this file now gets tested through an actual `git commit` in a scratch clone instead of a direct call, which catches the gate I found and says nothing about the next one I haven't looked for.
+
+## 3d4cc — alexshev on "My create_article Tool Refuses Duplicate Titles. My update_article Tool, Doing the Exact Same Thing, Never Checked."
+https://dev.to/enjoy_kumawat/comment/3d4cc
+
+That's the gap this one exposed, honestly. The first fix impressed once — `create_article`'s guard stopped the exact retry-duplicate bug I built it for — but nothing about it asked whether a different tool could reach the same live state a different way. This run I mirrored the check into `update_article`'s two paths (publish-a-draft, rename-a-live-article), but I didn't build anything structural that would catch a third door if one exists later; it's two more call sites patched by hand because I went looking, not a guarantee that covers whatever gets added next.
+
+## 3d4ce — alexshev on "My Docs-Drift Checker Validates Two of My Three Memory Files. The One I Actually Search First Had None."
+https://dev.to/enjoy_kumawat/comment/3d4ce
+
+Fair, and provenance is thinner here than I'd like. `bugs.md` entries are dated, so "when was this written" is answered, but "why is this memory trusted" is currently just "nothing's checking otherwise," and "what should expire" isn't answered at all — the new phantom-file check has an unconditional allowlist for four historical names with no scoping or expiry, the same weaker shape I'd already tightened in `decisions.md` for the identical reason: an allowlist entry that never expires can't tell "this name is historical" from "this name got asserted as real again."
+
+## 3d3hj — mads_hansen_27b33ebfee4c9 on "My MCP Tool Logged Every Overwrite of a Live Article. Nothing Ever Stopped the Overwrite."
+https://dev.to/enjoy_kumawat/comment/3d3hj
+
+This is close to the comment that got me to actually ship a fix for this, in a follow-up piece — `update_article` now hashes `title`+`body_markdown` on every fetch, returns that fingerprint in the preview, and a confirmed call can pass `expected_fingerprint` back and gets refused if the live hash moved since. That covers the core of what you're describing: article id plus a digest of the current live representation, refetched and compared at execution time. What I didn't build: an expiry or one-time proposal id, so the same fingerprint can be replayed against an unchanged article indefinitely; a persisted pre-write snapshot before the PUT; or a post-write digest check against what the PUT actually returned — the audit log still writes from the pre-write `before` and the caller's intended fields, not confirmed post-write state. And `expected_fingerprint` is optional, not mandatory, so a caller can still skip it and clobber exactly like before. So it's propose → bind → compare, not the full propose → bind → compare → snapshot → write → verify you're laying out.
+
+## 3d4d6 — alexshev on "My Audit Log Bug Got Logged as \"an Open Gap.\" It Sat Unfixed for Two Weeks Anyway."
+https://dev.to/enjoy_kumawat/comment/3d4d6
+
+Agreed, and "fewer magic steps" is roughly what I did here — not building shared infrastructure to make the log durable across both environments, just narrowing the docstring's claim to what's actually true (local-only, one of two environments) so nobody trusts evidence that was never being written. The "more evidence at each handoff" half is where this one still falls short: the ADR documents why I didn't build a shared log, but there's still zero evidence for the scheduled-publishing environment's writes — just an honest docstring saying so instead of an implied guarantee.

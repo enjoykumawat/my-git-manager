@@ -898,3 +898,6 @@
 
 ### 2026-08-15 - DEV.to: 2 comment replies drafted
 - 2026-08-15: 2 replies drafted in `drafts/comment_replies.md` for comments on "My Publish Script Checks for Duplicates Before It Posts. Nothing Stops Two Checks From Passing at Once." (1, alexshev), "I \"Verified Live\" the Same Git Hook Fix Three Times. I Never Once Let Git Decide Whether to Run It." (1, eduzsh).
+
+### 2026-08-16 - DEV.to: 4 comment replies drafted
+- 2026-08-16: 4 replies drafted in `drafts/comment_replies.md` for comments on "My create_article Tool Refuses Duplicate Titles. My update_article Tool, Doing the Exact Same Thing, Never Checked." (1, alexshev), "My Docs-Drift Checker Validates Two of My Three Memory Files. The One I Actually Search First Had None." (1, alexshev), "My MCP Tool Logged Every Overwrite of a Live Article. Nothing Ever Stopped the Overwrite." (1, mads_hansen_27b33ebfee4c9), "My Audit Log Bug Got Logged as \"an Open Gap.\" It Sat Unfixed for Two Weeks Anyway." (1, alexshev).
