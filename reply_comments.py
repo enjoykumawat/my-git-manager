@@ -207,6 +207,28 @@ def replied_anywhere_in_subtree(comment):
     )
 
 
+def _walk_comments(comment):
+    """Yield this comment and every comment in its subtree, at any depth.
+
+    `audit()`'s own drafted-vs-posted match used to iterate straight over
+    `api(f"/comments?a_id=...")`'s return value — which is only the
+    THREAD ROOTS, one entry per top-level comment, with everything below
+    it reachable only through nested "children" lists. That was fine back
+    when `pending()` only ever drafted a reply to a thread's single root
+    comment. It hasn't matched reality since the 2026-08-02 fix (a
+    follow-up nested under my own reply is its own pending entry, using
+    THAT comment's id_code, not the root's) and especially since the
+    2026-08-12 `_pending_leaves()` fix (branching threads draft against
+    each unanswered LEAF's id_code, at whatever depth it sits). `pending()`
+    has drafted against non-root id_codes as the normal case for weeks;
+    `audit()`'s outer loop was never updated to look past the root to find
+    them. See docs/project_notes/bugs.md 2026-08-17 (second entry).
+    """
+    yield comment
+    for child in comment["children"]:
+        yield from _walk_comments(child)
+
+
 def audit():
     try:
         drafted_text = open(DRAFTS, encoding="utf-8").read()
@@ -217,15 +239,16 @@ def audit():
     for a in my_articles():
         if not a["comments_count"]:
             continue
-        for c in api(f"/comments?a_id={a['id']}"):
-            if c["id_code"] not in drafted_codes:
-                continue
-            if not replied_anywhere_in_subtree(c):
-                unposted.append({
-                    "id_code": c["id_code"],
-                    "article": a["title"],
-                    "comment_url": f"https://dev.to/{ME}/comment/{c['id_code']}",
-                })
+        for root_comment in api(f"/comments?a_id={a['id']}"):
+            for c in _walk_comments(root_comment):
+                if c["id_code"] not in drafted_codes:
+                    continue
+                if not replied_anywhere_in_subtree(c):
+                    unposted.append({
+                        "id_code": c["id_code"],
+                        "article": a["title"],
+                        "comment_url": f"https://dev.to/{ME}/comment/{c['id_code']}",
+                    })
     return {"drafted": len(drafted_codes), "never_posted": unposted}
 
 
@@ -322,6 +345,54 @@ if __name__ == "__main__":
         # Drafting one sibling leaves the other still pending.
         remaining = list(_pending_entries(branching, drafted_codes={"sibC"}))
         assert [e["id_code"] for e in remaining] == ["sibB"], remaining
+
+        # audit()'s outer loop used to iterate only over the THREAD ROOTS
+        # api() returns, matching drafted_codes against `c["id_code"]` for
+        # just that top level. pending() has drafted against non-root
+        # id_codes as the ordinary case since the 2026-08-02 (nested
+        # follow-up) and 2026-08-12 (branching leaf) fixes — a comment
+        # nested two levels deep, exactly like `root_round2`/`bbb` above,
+        # is a completely normal drafted_codes entry today. audit() never
+        # picked up that change: a drafted-but-never-actually-pasted reply
+        # to a nested comment matched no root-level id_code at all and
+        # silently vanished from `never_posted`, defeating the one thing
+        # this function exists to catch. See docs/project_notes/bugs.md
+        # 2026-08-17 (second entry).
+        _orig_api_for_audit = api
+        _audit_thread = msg("userA", "2026-08-01T08:00:00Z", id_code="aaa", body="original question",
+                             children=[
+                                 msg(ME, "2026-08-02T08:00:00Z", id_code="myreply1", children=[
+                                     msg("userA", "2026-08-03T08:00:00Z", id_code="bbb",
+                                         body="follow-up question"),
+                                 ]),
+                             ])
+
+        def _fake_api_for_audit(path):
+            if path.startswith("/articles?username="):
+                return [{"id": 1, "title": "Test Article", "comments_count": 1}] if "&page=1" in path else []
+            if path.startswith("/comments?a_id="):
+                return [_audit_thread]
+            raise AssertionError(path)
+
+        globals()["api"] = _fake_api_for_audit
+        _orig_drafts = DRAFTS
+        import tempfile as _tempfile
+        _tmp_drafts = _tempfile.NamedTemporaryFile("w", suffix=".md", delete=False)
+        _tmp_drafts.write("## bbb\nSome drafted reply for the nested follow-up.\n")
+        _tmp_drafts.close()
+        globals()["DRAFTS"] = _tmp_drafts.name
+        try:
+            audit_result = audit()
+            assert audit_result["drafted"] == 1, audit_result
+            assert [u["id_code"] for u in audit_result["never_posted"]] == ["bbb"], (
+                "a drafted-but-unposted reply to a NESTED comment must be caught by "
+                "audit(), not silently missed because the outer loop only ever "
+                "checked root-level id_codes: " + repr(audit_result)
+            )
+        finally:
+            globals()["api"] = _orig_api_for_audit
+            globals()["DRAFTS"] = _orig_drafts
+            os.unlink(_tmp_drafts.name)
 
         # my_articles() must walk `page` explicitly rather than trusting a
         # single per_page=100 call — verified live against the real API that

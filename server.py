@@ -326,7 +326,12 @@ def _all_published_titles():
 
 
 @mcp.tool()
-def create_article(title: str, body_markdown: str, tags: list[str] = None, published: bool = False) -> dict:
+# tags was `list[str] = None` — same non-Optional-annotation-with-None-default
+# gap as update_article below: FastMCP/pydantic schema'd this as a required
+# array type with a null default, and rejected an explicit tags=null at the
+# validation layer before this function's own `if tags:` guard ever ran. See
+# docs/project_notes/bugs.md 2026-08-17.
+def create_article(title: str, body_markdown: str, tags: list[str] | None = None, published: bool = False) -> dict:
     """Create a new DEV.to article. Returns id and url."""
     if published:
         # A POST can succeed server-side and still leave the caller with
@@ -440,9 +445,30 @@ def _duplicate_published_title(article_id, final_title, final_published):
 
 
 @mcp.tool()
-def update_article(article_id: int, title: str = None, body_markdown: str = None,
-                    published: bool = None, confirm: bool = False,
-                    expected_fingerprint: str = None) -> dict:
+# title/body_markdown/published/expected_fingerprint were `str = None` /
+# `bool = None` — a bare non-Optional annotation with a None default.
+# FastMCP builds this tool's JSON schema (and its runtime argument
+# validator) straight from these annotations via pydantic, which does NOT
+# treat "annotation str, default None" as an implicit Optional[str] the way
+# a human skimming the signature would. The generated inputSchema advertised
+# `"default": null` right next to `"type": "string"` — a self-contradictory
+# schema that tells a caller null is the default while never allowing it as
+# a value. A caller that explicitly sends JSON null for a field it doesn't
+# want to change (a very ordinary way to represent "no value" — and exactly
+# what this tool's own docstring's semantics are, "None means leave
+# unchanged") got a pydantic ValidationError surfaced as a generic
+# ToolError, never reaching this function's own None-means-unchanged logic
+# below at all. Verified live via mcp.call_tool() with a real FastMCP
+# instance: update_article(article_id=42, title=None) raised
+# "Input should be a valid string [type=string_type, input_value=None]"
+# before this function's body ever ran; omitting the key entirely (the
+# only previously-working way to mean "don't change this") worked fine,
+# which is what made the gap invisible to every prior selftest here — none
+# of them call a tool through the real MCP validation layer with an
+# explicit null. See docs/project_notes/bugs.md 2026-08-17.
+def update_article(article_id: int, title: str | None = None, body_markdown: str | None = None,
+                    published: bool | None = None, confirm: bool = False,
+                    expected_fingerprint: str | None = None) -> dict:
     """Update an existing DEV.to article by id. Fetches the article's current
     state first so the diff is known and logged before the write lands —
     a wrong or hallucinated article_id used to silently overwrite whatever
@@ -982,6 +1008,91 @@ if __name__ == "__main__":
                 os.environ["DEV_TO_API"] = _saved_dev
             else:
                 os.environ.pop("DEV_TO_API", None)
+
+        # update_article's title/body_markdown/published/expected_fingerprint
+        # and create_article's tags were `str = None` / `bool = None` /
+        # `list[str] = None` — a non-Optional annotation with a None default.
+        # FastMCP builds each tool's pydantic argument model straight from
+        # the annotation, not the default, so the generated schema required
+        # a plain "string"/"array"/"boolean" and rejected an explicit JSON
+        # null at the validation layer — before this file's own
+        # None-means-unchanged logic ever ran. Every prior case above calls
+        # these functions directly in Python, which only ever exercises
+        # "key omitted" (where the Python default silently applies) — never
+        # "key present with an explicit null," which is what actually goes
+        # through FastMCP's pydantic validation on a real MCP tool call.
+        # Verified live: before the `str | None` fix,
+        # mcp.call_tool("update_article", {"article_id": 42, "title": None})
+        # raised "Input should be a valid string [type=string_type,
+        # input_value=None]" via the real mcp package, never reaching this
+        # function's body. See docs/project_notes/bugs.md 2026-08-17.
+        import asyncio
+
+        async def _null_field_regression():
+            # article_id alone (all optional fields omitted) must still hit
+            # this file's own "no fields to update" ValueError, proving the
+            # call reached the function body and wasn't swallowed upstream.
+            try:
+                await mcp.call_tool("update_article", {"article_id": 42, "title": None})
+                assert False, "title=None must raise via the tool's own logic, not silently succeed"
+            except Exception as e:
+                msg = str(e)
+                assert "string_type" not in msg, (
+                    "title=None must not fail pydantic's schema validation "
+                    "(str, not str | None) before the tool body ever runs: " + msg
+                )
+                assert "no fields to update" in msg, (
+                    "title=None should reach update_article's own None-means-"
+                    "unchanged logic, same as omitting the key entirely: " + msg
+                )
+
+            try:
+                await mcp.call_tool("update_article", {"article_id": 42, "published": None})
+                assert False
+            except Exception as e:
+                msg = str(e)
+                assert "bool_type" not in msg, (
+                    "published=None must not fail pydantic's schema validation: " + msg
+                )
+                assert "no fields to update" in msg, msg
+
+            try:
+                await mcp.call_tool("update_article", {"article_id": 42, "expected_fingerprint": None})
+                assert False
+            except Exception as e:
+                msg = str(e)
+                assert "string_type" not in msg, (
+                    "expected_fingerprint=None must not fail pydantic's schema validation: " + msg
+                )
+
+            # create_article's tags=None must reach the real function body
+            # (this file's own `if tags:` guard) instead of failing
+            # pydantic's "list_type" schema check first. Stub _dev so this
+            # stays fully offline/deterministic, same discipline as every
+            # other case in this file.
+            _orig_dev_for_tags = globals()["_dev"]
+            globals()["_dev"] = lambda path, method="GET", data=None: {
+                "id": 1, "url": "https://x/1", "published": False,
+            }
+            try:
+                # mcp.call_tool() raises on a tool-execution error and
+                # returns content normally on success — no exception here
+                # is itself the assertion that pydantic accepted the null
+                # and create_article's own logic ran to completion.
+                await mcp.call_tool(
+                    "create_article",
+                    {"title": "x", "body_markdown": "y", "tags": None},
+                )
+            except Exception as e:
+                assert False, (
+                    "tags=None must not fail pydantic's schema validation "
+                    "(list[str], not list[str] | None) before create_article's "
+                    "own `if tags:` guard ever runs: " + str(e)
+                )
+            finally:
+                globals()["_dev"] = _orig_dev_for_tags
+
+        asyncio.run(_null_field_regression())
 
         print("selftest ok")
         raise SystemExit(0)
