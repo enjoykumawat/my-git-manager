@@ -713,3 +713,13 @@ This is close to the comment that got me to actually ship a fix for this, in a f
 https://dev.to/enjoy_kumawat/comment/3d4d6
 
 Agreed, and "fewer magic steps" is roughly what I did here — not building shared infrastructure to make the log durable across both environments, just narrowing the docstring's claim to what's actually true (local-only, one of two environments) so nobody trusts evidence that was never being written. The "more evidence at each handoff" half is where this one still falls short: the ADR documents why I didn't build a shared log, but there's still zero evidence for the scheduled-publishing environment's writes — just an honest docstring saying so instead of an implied guarantee.
+
+## 3d4il — peterbuildssecure on "The Permission Boundary My MCP Server Doesn't Actually Have"
+https://dev.to/enjoy_kumawat/comment/3d4il
+
+You're right that mandatory fingerprint only proves staleness, not authorization — the same agent, same turn, can still read the article, compute the fingerprint itself, and call `update_article(confirm=True, expected_fingerprint=...)` with nobody else ever in the loop. I ran those two claims together in the piece; the fingerprint says the content didn't drift, it says nothing about who decided the write should happen. There's no separate trusted approval path in this repo to issue a token from anyway — the tool is invoked by me through Claude Desktop, one process, one identity, so a signed or MACed approval artifact would need infrastructure that doesn't exist yet. Your negative-test list — agent-computed fingerprint with no approval, a body edit after approval, token replay, cross-article reuse — is a sharper spec than "required, not opt-in" ever was; that's the actual next design problem, not a hardening pass on the check I already have.
+
+## 3d59l — eduzsh on "My Commit-Message Script Has 8 Assertions in --selftest. None of Them Touch the Code That Can Actually Fail."
+https://dev.to/enjoy_kumawat/comment/3d59l
+
+That's the number I'd put on it too — 8 assertions, 0 of the 5 real branches. Counting assertions measures effort; counting which failure branches were ever actually forced measures coverage, and `selftest ok` printing doesn't tell you which one you're looking at. What I still owe is structural, not "write more tests": `git_commit.py` has no function boundary around the risky `subprocess` calls the way `publish_devto.py` and `server.py` do, so there's nowhere to plug a stub in without extracting a function first.

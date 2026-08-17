@@ -2,6 +2,11 @@
 
 ---
 
+### 2026-08-17 - DEV.to: 2 comment replies drafted
+
+- **Status**: Completed — appended to `drafts/comment_replies.md`, none posted (manual paste step per `bugs.md` 2026-07-18).
+- **Description**: `reply_comments.py pending` surfaced 2 new unreplied, undrafted comments. `3d4il` (peterbuildssecure, on "The Permission Boundary My MCP Server Doesn't Actually Have") — pointed out that a mandatory `expected_fingerprint` only proves freshness, not authorization, since the same agent can still read+hash+confirm in one turn; reply agrees, distinguishes the two claims, and notes this repo has no separate trusted approval path to issue a signed token from at all. `3d59l` (eduzsh, on "My Commit-Message Script Has 8 Assertions in --selftest. None of Them Touch the Code That Can Actually Fail.") — restated the article's thesis; reply affirms and adds that `git_commit.py` still has no function boundary around its `subprocess` calls to stub against.
+
 ### 2026-08-15 - DEV.to: 2 articles published (second run of the day)
 
 - **Status**: Completed (both live; verified via HTTP 200 fetch of each URL)
