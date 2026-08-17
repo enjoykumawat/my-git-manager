@@ -762,6 +762,33 @@ if __name__ == "__main__":
         # write title/body_markdown onto an article the API reports as
         # already published; the unconfirmed call must return the proposed
         # diff instead of touching the network. See bugs.md 2026-08-15.
+        # Every live effect this block exercises below goes through a
+        # stubbed globals()["_dev"] — except one. _log_article_update()
+        # writes unconditionally to the module-level _ARTICLE_UPDATE_LOG
+        # path (logs/article_updates.jsonl next to this file), and nothing
+        # here ever redirected it the way DRAFTS gets swapped for a tempfile
+        # in reply_comments.py's audit() selftest case. That path is the
+        # real, production write-audit trail ADR-006/bugs.md 2026-07-27
+        # built specifically so a bad write to a live article would leave a
+        # trustworthy trace — and this repo's own convention runs
+        # `server.py --selftest` after every single fix logged in bugs.md.
+        # Verified live: on a clean checkout, `python3 server.py --selftest`
+        # took logs/article_updates.jsonl from 0 lines to 12 (two selftest
+        # runs during initial verification), then a third run to 18 — six
+        # synthetic entries appended per run, using this fixture's own
+        # article_id (42) and titles ("old title" -> "new title", "forced
+        # title", etc.), indistinguishable in shape from a genuine write.
+        # Every prior run of this file's own mandated `--selftest` check has
+        # been quietly corrupting the exact file it exists to keep
+        # trustworthy. See docs/project_notes/bugs.md 2026-08-17 (third
+        # entry).
+        import tempfile as _tempfile
+        _orig_article_log = _ARTICLE_UPDATE_LOG
+        _tmp_log_fd, _tmp_log_path = _tempfile.mkstemp(suffix=".jsonl")
+        os.close(_tmp_log_fd)
+        os.remove(_tmp_log_path)  # _log_article_update() must create it fresh, same as the real path on first write
+        globals()["_ARTICLE_UPDATE_LOG"] = _tmp_log_path
+
         _live_article = {"id": 42, "url": "https://x/42", "published": True,
                           "title": "old title", "body_markdown": "old body"}
         _put_calls = {"n": 0}
@@ -930,8 +957,23 @@ if __name__ == "__main__":
                 globals()["_dev"] = _fake_dev_update
             assert self_match["applied"] is True, "matching against its own id is not a duplicate"
             assert _put_calls["n"] == 1
+
+            # The redirect itself must actually be doing something, not just
+            # silently no-op — confirm the applied writes above really did
+            # land in the TEMP log (proving _log_article_update() honors the
+            # swapped path) and that the real production log never saw them.
+            with open(_tmp_log_path, encoding="utf-8") as _f:
+                _tmp_log_lines = _f.readlines()
+            assert len(_tmp_log_lines) == 6, (
+                "applied update_article() calls above must still log to "
+                f"_ARTICLE_UPDATE_LOG, just redirected: got {len(_tmp_log_lines)} lines"
+            )
+            assert "forced title" in _tmp_log_lines[-2], _tmp_log_lines[-2]
         finally:
             globals()["_dev"] = _orig_dev
+            globals()["_ARTICLE_UPDATE_LOG"] = _orig_article_log
+            if os.path.exists(_tmp_log_path):
+                os.remove(_tmp_log_path)
 
         # claude -p takes its prompt as a single argv element; a diff large
         # enough to push the combined prompt over the OS's ARG_MAX previously

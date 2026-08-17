@@ -2,6 +2,16 @@
 
 ---
 
+### 2026-08-17 - DEV.to: 2 articles published (second run of the day)
+
+- **Status**: Completed (both live; verified via HTTP 200 fetch of each URL)
+- **Description**: Second finding of this run. After the `list_all_published_titles.py` KeyError fix/article (below), delegated a second sequential bug-hunt subagent (not parallel, to avoid concurrent working-tree edits), given the first finding as newly off-limits territory plus the full exhausted-veins list, instructed to verify live and fix for real. Found: `server.py --selftest`'s `update_article()` fixture monkeypatches `_dev` (the API layer) but never redirected `_ARTICLE_UPDATE_LOG`, so all 6 applied-write fixture cases appended real lines to the real production audit log (`logs/article_updates.jsonl`) on every single selftest run — verified live, file grew 12→18→24 lines across two consecutive runs, all schema-identical to genuine writes. `reply_comments.py`'s `audit()` selftest already had the fix pattern for this exact shape (redirecting `DRAFTS` to a tempfile) on a sibling file; never applied here across five prior `update_article` hardening passes. Fixed by redirecting `_ARTICLE_UPDATE_LOG` to a tempfile for the fixture's duration, restoring in the existing `finally`, with a new assertion proving the redirect actually receives the expected 6 lines (not a silent no-op). Deleted the polluted log, reran selftest twice — never recreated. All 7 selftest-bearing scripts pass; `check_key_facts.py` still in sync.
+  - Full root-cause detail in `bugs.md` (2026-08-17, fourth entry).
+  - Tags: python, debugging, mcp, devtools. Source: `drafts/selftest-was-writing-to-the-real-audit-log.md`. Code changes: `server.py` (`--selftest` block: `_ARTICLE_UPDATE_LOG` redirect + restore + new assertion).
+  - https://dev.to/enjoy_kumawat/my-mcp-servers-test-suite-ran-clean-every-time-it-was-also-writing-to-my-production-audit-log-194g
+
+---
+
 ### 2026-08-17 - DEV.to: 1 article published (second run of the day, first of this run)
 
 - **Status**: Completed (live; verified via HTTP 200 fetch)
