@@ -59,7 +59,21 @@ def all_published_titles(key, per_page=30):
 
 def main():
     load_env()
-    key = os.environ["DEV_TO_API"]
+    # Was a bare os.environ["DEV_TO_API"] — a container with no .env, a
+    # typo'd key name, or a .env defining only GITHUB_TOKEN raised an
+    # unhandled KeyError straight out of main(), instead of exiting through
+    # this repo's own ERROR:-prefixed convention. server.py's _gh()/_dev()
+    # and publish_devto.py's main() got this exact fix 2026-08-09; this
+    # script — sharing the identical os.environ["DEV_TO_API"] shape and
+    # written before that fix — was never revisited, and score_published.py
+    # (written 2026-08-14, after that fix existed) got it right independently
+    # without anyone going back to check this older sibling. Verified live:
+    # `env -u DEV_TO_API python3 scripts/list_all_published_titles.py` raised
+    # a raw `KeyError: 'DEV_TO_API'` traceback before this fix. See
+    # docs/project_notes/bugs.md 2026-08-17 (third entry).
+    key = os.environ.get("DEV_TO_API")
+    if not key:
+        sys.exit("ERROR: DEV_TO_API not set — add it to .env next to this script")
     titles = all_published_titles(key)
     for a in titles:
         print(f"{a['published_at']}  {a['title']}")
@@ -95,6 +109,26 @@ if __name__ == "__main__":
         assert len(result) == 3, result
         assert result[-1]["title"] == "c", result
         assert len(calls) == 3, calls  # stopped only once a page came back empty
+
+        # main() used to read `os.environ["DEV_TO_API"]` directly — a
+        # missing/unset credential (no .env, a typo'd key name) raised a
+        # bare, unhandled KeyError instead of exiting through this repo's
+        # own ERROR:-prefixed convention, the same gap server.py's
+        # _gh()/_dev() and publish_devto.py's main() were fixed for
+        # 2026-08-09 — this script, sharing the identical shape, was never
+        # revisited. See docs/project_notes/bugs.md 2026-08-17 (third entry).
+        _saved_dev_key = os.environ.pop("DEV_TO_API", None)
+        try:
+            try:
+                main()
+                assert False, "missing DEV_TO_API must exit, not silently proceed"
+            except SystemExit as e:
+                assert e.code is not None and "DEV_TO_API not set" in str(e.code), e.code
+            except KeyError:
+                assert False, "must exit through ERROR: convention, not a bare KeyError"
+        finally:
+            if _saved_dev_key is not None:
+                os.environ["DEV_TO_API"] = _saved_dev_key
 
         # `k` (the env var NAME half of a parsed .env line) was never
         # stripped — a `KEY = value` line (spaces around `=`) put a trailing

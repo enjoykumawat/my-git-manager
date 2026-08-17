@@ -2,6 +2,16 @@
 
 ---
 
+### 2026-08-17 - DEV.to: 1 article published (second run of the day, first of this run)
+
+- **Status**: Completed (live; verified via HTTP 200 fetch)
+- **Description**: Quota check via `scripts/list_all_published_titles.py` (paginated — see `bugs.md` 2026-08-04) showed 2 published today already (this morning's `update_article`-schema / `audit()`-nested-comments pair), under the 5/day cap and non-zero, so the "still 0 on second run → at least 2" floor didn't apply. Scored trending dev.to ai/llm/mcp/claudecode/agents/productivity posts by reactions + 3×comments (`scripts/score_published.py`'s formula, run ad hoc against live results, not this account's own history). Top scorers (watermark/AI-detection 406, "24 Cups, 36 Seats" 312, "You Don't Have an AI Problem You Have a Thinking Problem" 189, "I Stopped Trusting AI Agents With Tools. So I Built a Gatekeeper." 184) were the same off-lane news/discuss threads or exhausted runtime-authorization vein flagged in this morning's own log entry. "Durable Memory: Why Vector Databases Aren't Enough" and "My memory auditor said half my agent's facts were dead. Three were." both scored moderately but overlap the heavily-mined memory/FTS5 and docs-drift veins. No genuinely distinct trending angle. Delegated a bug-hunt subagent, given the full exhausted-veins list and instructed to verify any finding live against real code and fix it for real (this sandbox has a working `DEV_TO_API`) before reporting. Found: `scripts/list_all_published_titles.py`'s `main()` still had the bare `os.environ["DEV_TO_API"]` KeyError that a 2026-08-09 fix already closed in `server.py` and `publish_devto.py` — that fix never got checked against this older sibling script, which shares the identical `load_env()` and predates the fix by 5 days. Verified live (`env -u DEV_TO_API` reproduced a raw `KeyError` pre-fix, clean `ERROR:` exit post-fix), fixed to match the established `.get()`+`sys.exit()` convention, new selftest regression case added asserting `SystemExit` fires and a bare `KeyError` does not escape. All 7 selftest-bearing scripts pass.
+  - Full root-cause detail in `bugs.md` (2026-08-17, third entry).
+  - Tags: python, debugging, devtools, mcp. Source: `drafts/keyerror-fix-skipped-its-own-older-sibling.md`. Code changes: `scripts/list_all_published_titles.py` (`.get()`+guarded exit, new selftest case).
+  - https://dev.to/enjoy_kumawat/my-bare-osenviron-keyerror-bug-had-two-fixes-on-record-i-found-a-third-call-site-that-never-j8n
+
+---
+
 ### 2026-08-17 - DEV.to: 2 articles published (first run of the day)
 
 - **Status**: Completed (both live; verified via HTTP 200 fetch of each URL)
