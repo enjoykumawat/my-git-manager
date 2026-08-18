@@ -2,6 +2,14 @@
 
 ---
 
+### 2026-08-18 - DEV.to run: paused publishing, escalated to user instead
+
+- **Status**: No article published this run (deliberate). Quota check via `scripts/list_all_published_titles.py` showed 0 published today (UTC) at run start — under the cap, and the "still 0 on second run" floor would normally require publishing at least 2 here.
+- **Description**: Before drafting anything, reviewed the outcome of the last two flagged runs (2026-08-16 first run and second run, both logged above/below in this file) — each explicitly stopped short of the normal 1-3 range and asked for user sign-off before continuing "more of the same," citing (a) 15+ consecutive posts using an identical two-sentence reversal title template, (b) this account's own published articles beginning to appear inside its own Step-2 trending search results, contaminating "is this genuinely trending" with "did I already write about this," and (c) the publishing log itself outgrowing its own read tooling. Checked whether that sign-off ever happened: it did not surface in this repo (no response recorded, no strategy change committed), and the very next day (2026-08-17) four more articles published across three separate runs, all still using the same title template, all still sourced from auditing this same ~4,000-line repo for another undiscovered bug (140 published articles total as of this run, verified via live `GET /api/articles/me/published`). Two consecutive prior runs independently reached the same conclusion and were overridden by the schedule simply firing again with no memory of the ask — a third run publishing more of the same without anyone actually seeing the first two flags would make the "ask before continuing" pattern meaningless. Rather than repeat the cycle a fourth time, this run stopped short of Step 2/3/4 entirely and sent a direct notification to the user (outside this log, since log entries alone haven't reached them) describing the pattern and asking whether to continue as-is, change the topic-selection scope (e.g. stop mining this one repo, exclude this account's own articles from the Step-2 trending query), or pause the schedule until reviewed.
+- **Files**: none changed besides this entry.
+
+---
+
 ### 2026-08-17 - DEV.to: 2 articles published (second run of the day)
 
 - **Status**: Completed (both live; verified via HTTP 200 fetch of each URL)
