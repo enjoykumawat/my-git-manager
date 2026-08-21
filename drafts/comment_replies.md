@@ -723,3 +723,48 @@ You're right that mandatory fingerprint only proves staleness, not authorization
 https://dev.to/enjoy_kumawat/comment/3d59l
 
 That's the number I'd put on it too — 8 assertions, 0 of the 5 real branches. Counting assertions measures effort; counting which failure branches were ever actually forced measures coverage, and `selftest ok` printing doesn't tell you which one you're looking at. What I still owe is structural, not "write more tests": `git_commit.py` has no function boundary around the risky `subprocess` calls the way `publish_devto.py` and `server.py` do, so there's nowhere to plug a stub in without extracting a function first.
+
+## 3d8b6 — alanhartcore on "A 2-Token Prompt and a 39,966-Token Bill: Measuring What My Agent Actually Costs"
+https://dev.to/enjoy_kumawat/comment/3d8b6
+
+Haven't built either, honestly, and the current shape of the code is part of why. There's one call site — a single `claude -p --safe-mode` subprocess per commit — so there's no fleet of calls with different stakes to route across, and `--safe-mode` already strips the CLAUDE.md scaffolding that was inflating `cache_creation_input_tokens` in the first place, which was the bigger lever than caching would've been. Your tool-definitions point does track with what I found on the output side though — same prompt, same correct answer, 313 output tokens instead of 4 just from the model having routing rules present to reason about, even when it never calls anything. That's the part I don't have an answer for yet: a cost ceiling on `total_cost_usd` catches the input-side inflation fine, but it wouldn't flag a reasoning-length blowup that stays under a normal token count for a chatty answer.
+
+## 3d6h0 — alexshev on "My MCP Server's Test Suite Ran Clean Every Time. It Was Also Writing to My Production Audit Log Every Time."
+https://dev.to/enjoy_kumawat/comment/3d6h0
+
+That's exactly the shape of it — the log looked more complete, not more broken, because the six lines per run were syntactically real entries matching the actual schema, not corrupted or truncated. The only tell was `article_id: 42` repeating with titles like "forced title," which only surfaces if you're reading closely enough to notice a synthetic ID recurring. The fix ended up close to your framing: redirect `_ARTICLE_UPDATE_LOG` to a tempfile in the same `finally` block that already restores the `_dev` stub, so the storage boundary moves with the test instead of just the network mock.
+
+## 3d79c — talha_ramzan_3878156fea8c on "My MCP Server's Test Suite Ran Clean Every Time. It Was Also Writing to My Production Audit Log Every Time."
+https://dev.to/enjoy_kumawat/comment/3d79c
+
+Yeah, that's the sharper read on it. `reply_comments.py`'s `audit()` selftest already redirected `DRAFTS` to a tempfile months ago for the identical reason, and I never generalized that into "anything a selftest writes to needs its own redirect" — just fixed the one file that broke. You're right that a redirect alone isn't enough either, so I added an assertion that the tempfile actually contains the six lines the fixture should produce, not just that it exists, because a silently no-op'd redirect would pass for the wrong reason exactly like you're describing.
+
+## 3d6gp — alexshev on "My Bare os.environ[...] KeyError Bug Had Two Fixes on Record. I Found a Third Call Site That Never Got Either."
+https://dev.to/enjoy_kumawat/comment/3d6gp
+
+Right, and that's basically what bit me — the `bugs.md` entry named two files because two files were checked, not because anyone grepped the repo for the pattern. `scripts/list_all_published_titles.py` had the identical bare subscript sitting one directory over the whole time, and it only got caught because I went looking for it on purpose, weeks later. I ended up drawing the line at two occurrences before committing to a repo-wide sweep — worth doing on a third, not before, or I'd be grepping for every pattern that's ever bitten me once.
+
+## 3d79d — talha_ramzan_3878156fea8c on "My Bare os.environ[...] KeyError Bug Had Two Fixes on Record. I Found a Third Call Site That Never Got Either."
+https://dev.to/enjoy_kumawat/comment/3d79d
+
+Picking the number in advance is the part I'd actually recommend — I didn't have a rule until after the second occurrence, I just got annoyed enough to write one down. The negative assertion is the one I nearly skipped too: "exits through SystemExit" alone would keep passing even if someone reverted `.get()` back to a subscript, since an uncaught `KeyError` also ends the process, just uglier. Asserting a clean `sys.exit` with the right message happened, not just that the process ended, is what actually pins the fix in place.
+
+## 3d658 — themineworks on "\"My pending() Function Learned to Draft Against Nested Comments. My audit() Function Never Learned to Look for Them.\""
+https://dev.to/enjoy_kumawat/comment/3d658
+
+That's a close match to the shape of it — the failure only shows up on inputs you didn't happen to pick for the original test. In my case it was two prior fixes to `pending()` (deeper nesting, then sibling branches) that each landed clean against their own repro, while `audit()`'s flat loop over thread roots kept "passing" because nothing in its own test ever exercised a nested `id_code`. Your producer/consumer framing is right, and the part I'd add: both functions' tests stayed green the whole time, because nobody wrote a test for the new shape, only for the old one. I don't have a general defense against that either — what I added is a permanent repro for this one specific drift, not something that catches the next producer/consumer contract going stale on its own.
+
+## 3d6g3 — alexshev on "\"My pending() Function Learned to Draft Against Nested Comments. My audit() Function Never Learned to Look for Them.\""
+https://dev.to/enjoy_kumawat/comment/3d6g3
+
+That's a more precise way to put it than I did in the piece. `pending()`'s object model changed twice — first to admit a nested reply as its own entry, then to admit sibling branches at any depth — and `audit()` was still built against the original "the comments API gives you thread roots" shape, walking `c` but never `c["children"]`. Nobody re-derived audit's traversal from pending's current output when the second fix landed; it stayed correct against the old contract, just not the one that had actually been live for weeks.
+
+## 3d5h4 — bhavin-allinonetools on "My MCP Tool's Schema Lists null as the Default for a Field. Sending null Was the One Value It Rejected."
+https://dev.to/enjoy_kumawat/comment/3d5h4
+
+Yeah, that was the whole miss — every regression test in that file called `update_article()` as a plain Python function, which skips FastMCP's pydantic layer entirely. There's no schema validation to fail if you're not going through the schema, so five separate hardening passes never had a chance to catch it.
+
+## 3dakh — james_oconnor_dev on "My MCP Tool's Schema Lists null as the Default for a Field. Sending null Was the One Value It Rejected."
+https://dev.to/enjoy_kumawat/comment/3dakh
+
+The misattribution point is the one I hadn't considered, and it's real — a `ToolError` on `string_type` looks identical in a trace to the model just calling the tool wrong, and I've got no way to tell those apart after the fact since I don't log rejected calls at all right now. Your round-trip test is a better structural fix than what I shipped; I only added a case for the specific fields I'd already found broken by hand (`title`, `body_markdown`, `published`, `expected_fingerprint`, `tags`), not a generic sweep that reads every advertised default off `list_tools()` and fires it back through `call_tool()`. That would catch the next one without me having to find it manually first, which is exactly the gap in what I have.
