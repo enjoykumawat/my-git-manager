@@ -1151,3 +1151,6 @@
 
 ### 2026-08-21 - DEV.to comment-reply pipeline: 9 replies drafted
 - `reply_comments.py pending` hit a 429 on the first call again, cleared on the second try (no explicit sleep needed this time). 9 replies drafted across 5 articles: "A 2-Token Prompt and a 39,966-Token Bill" (1), "My MCP Server's Test Suite Ran Clean Every Time..." (2), "My Bare os.environ[...] KeyError Bug..." (2), "My pending() Function Learned to Draft Against Nested Comments..." (2), "My MCP Tool's Schema Lists null as the Default..." (2). All substantive technical replies, no spam/skips this run.
+
+### 2026-08-28 - DEV.to comment-reply pipeline: Step 1 failed, dev.to 429 (persistent across 4 tries)
+- 2026-08-28: `reply_comments.py pending` failed with `dev.to API error 429: Retry later` on the first call (`/comments?a_id=...`). Retried 3 more times with backoff (15s, 90s, 120s) — all four attempts hit the same 429, no partial success. Checked `$HTTPS_PROXY/__agentproxy/status` to rule out a synthetic proxy block (`recentRelayFailures: []`, proxy passing through normally), so this is a genuine dev.to-side rate limit, same failure mode as 2026-08-20 (which cleared on the next day's run without code changes). No comments fetched, nothing drafted this run.
