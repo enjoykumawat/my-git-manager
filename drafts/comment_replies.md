@@ -768,3 +768,11 @@ Yeah, that was the whole miss — every regression test in that file called `upd
 https://dev.to/enjoy_kumawat/comment/3dakh
 
 The misattribution point is the one I hadn't considered, and it's real — a `ToolError` on `string_type` looks identical in a trace to the model just calling the tool wrong, and I've got no way to tell those apart after the fact since I don't log rejected calls at all right now. Your round-trip test is a better structural fix than what I shipped; I only added a case for the specific fields I'd already found broken by hand (`title`, `body_markdown`, `published`, `expected_fingerprint`, `tags`), not a generic sweep that reads every advertised default off `list_tools()` and fires it back through `call_tool()`. That would catch the next one without me having to find it manually first, which is exactly the gap in what I have.
+
+## 3edng — reagan48649 on "My create_article Tool Refuses Duplicate Titles. My update_article Tool, Doing the Exact Same Thing, Never Checked."
+https://dev.to/enjoy_kumawat/comment/3edng
+[skip — spam. Generic Google Drive/Gmail/Photos duplicate-scanner pitch with a tinyurl link, doesn't engage the article (update_article's missing duplicate-title guard) at all. Templated bot comment.]
+
+## 3edhd — shad96598 on "My MCP Tool Logged Every Overwrite of a Live Article. Nothing Ever Stopped the Overwrite."
+https://dev.to/enjoy_kumawat/comment/3edhd
+[skip — spam. Generic "capture/summarize/organize discussions" product pitch with a shortened link, doesn't engage the article (the fingerprint-based overwrite guard) at all. Templated bot comment.]
