@@ -776,3 +776,7 @@ https://dev.to/enjoy_kumawat/comment/3edng
 ## 3edhd — shad96598 on "My MCP Tool Logged Every Overwrite of a Live Article. Nothing Ever Stopped the Overwrite."
 https://dev.to/enjoy_kumawat/comment/3edhd
 [skip — spam. Generic "capture/summarize/organize discussions" product pitch with a shortened link, doesn't engage the article (the fingerprint-based overwrite guard) at all. Templated bot comment.]
+
+## 3je22 — banana_cool on "My Hook's Path Fix Passed Its Own Test. It Broke My README's Other Install Method."
+https://dev.to/enjoy_kumawat/comment/3je22
+No, I didn't authorize that — never heard of GyaanSetu AI before this comment. Lifting someone's actual debugging writeup and posting it in first person with no credit isn't a gray area, it's just taking someone else's work and claiming it as lived experience. Doing the same thing to your npm package writeup on top of mine makes it look like a pattern they're running, not a one-off. I'll go look at the post. Thanks for flagging it — this kind of thing doesn't show up in my own notifications since it's not even on the same platform.
