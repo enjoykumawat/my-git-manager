@@ -1214,3 +1214,6 @@
   - Tags: ai, agents, mcp, python; python, devtools, debugging, productivity. Sources: `drafts/logging-a-change-is-not-undo.md`, `drafts/duplicate-check-cost-at-141-articles.md`.
   - https://dev.to/enjoy_kumawat/logging-a-change-is-not-the-same-as-being-able-to-undo-it-4o7f
   - https://dev.to/enjoy_kumawat/how-much-does-a-duplicate-article-check-cost-after-141-publishes-1bh0
+
+### 2026-11-05 - DEV.to comment-reply pipeline: 3 replies drafted
+- `reply_comments.py pending` hit a dev.to 429 on the first attempt, cleared on retry (15s backoff). 3 pending top-level comments found, all from `neelagiri65` across 3 different articles ("I Gave My MCP Tool an ERROR: Convention...", "My GitHub Token Is Valid. My MCP Server Still Gets a 403...", "My MCP Server Has 8 Tools and Zero Log Lines..."), 3 replies drafted — no spam/skips this run.

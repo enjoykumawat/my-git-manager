@@ -780,3 +780,15 @@ https://dev.to/enjoy_kumawat/comment/3edhd
 ## 3je22 — banana_cool on "My Hook's Path Fix Passed Its Own Test. It Broke My README's Other Install Method."
 https://dev.to/enjoy_kumawat/comment/3je22
 No, I didn't authorize that — never heard of GyaanSetu AI before this comment. Lifting someone's actual debugging writeup and posting it in first person with no credit isn't a gray area, it's just taking someone else's work and claiming it as lived experience. Doing the same thing to your npm package writeup on top of mine makes it look like a pattern they're running, not a one-off. I'll go look at the post. Thanks for flagging it — this kind of thing doesn't show up in my own notifications since it's not even on the same platform.
+
+## 3k29e — neelagiri65 on "I Gave My MCP Tool an ERROR: Convention. I Only Taught It to One of Its Two Failure Paths."
+https://dev.to/enjoy_kumawat/comment/3k29e
+Yeah, that's exactly the shape of it — three explicit except clauses in `_claude()` now (timeout, non-zero exit, missing binary), each one added after I happened to hit it, not from a spec. Still no bare `except Exception` at the bottom, and I keep going back and forth on it: it closes the gap for real, but every new unexpected failure then just collapses into the same generic `ERROR:` string with no shape telling it apart from the ones I've already enumerated. The exit-1 stand-in is already a kept regression test rather than a one-off repro, so that part's done.
+
+## 3k29g — neelagiri65 on "My GitHub Token Is Valid. My MCP Server Still Gets a 403, and GitHub Never Saw the Request."
+https://dev.to/enjoy_kumawat/comment/3k29g
+Right, and up until I actually looked at `documentation_url` it read as a completely ordinary GitHub error — same shape, same keys, nothing obviously off. What I still don't have is a way for `_gh()` itself to tell a proxy block from a real GitHub 403 — there's no header or flag on the response marking it as policy, so hitting the status endpoint by hand is still the only way to check, not something the code can branch on.
+
+## 3k29f — neelagiri65 on "My MCP Server Has 8 Tools and Zero Log Lines. Diagnosing a Failure Meant Guessing From the Outside."
+https://dev.to/enjoy_kumawat/comment/3k29f
+Checked again just now, and it's still true — `_gh` and `_dev` in `server.py` have zero logging calls. You're right that the one-line-per-call version doesn't need the failure-class taxonomy solved first; it's cheap enough that there's no real reason I haven't just added it. That's the actual next thing to do here, not waiting until request ids and failure classes are fully speced out.
