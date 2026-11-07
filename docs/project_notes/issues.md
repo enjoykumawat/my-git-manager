@@ -1250,3 +1250,6 @@
   - https://dev.to/enjoy_kumawat/nothing-in-my-comment-reply-pipeline-tells-the-difference-between-a-question-and-an-instruction-4ga7
   - https://dev.to/enjoy_kumawat/a-repo-description-field-flows-straight-from-github-into-my-agents-context-unlabeled-3o11
   - https://dev.to/enjoy_kumawat/measuring-the-gap-between-killing-a-request-and-killing-its-side-effect-2280
+
+### 2026-11-07 - DEV.to comment-reply pipeline: Step 1 failed, dev.to 429 (persistent across 3 tries)
+- `reply_comments.py pending` failed with `dev.to API error 429: Retry later` on the first call (`/comments?a_id=...`). Retried 2 more times with backoff (30s, 60s) — all three attempts hit the same 429, no partial success. Checked `$HTTPS_PROXY/__agentproxy/status` to rule out a synthetic proxy block (`recentRelayFailures` had no dev.to entries, proxy passing through normally), so this is a genuine dev.to-side rate limit, same failure mode as 2026-08-20, 2026-08-28, and 2026-08-31 (all of which cleared on a later run without code changes). No comments fetched, nothing drafted this run.
