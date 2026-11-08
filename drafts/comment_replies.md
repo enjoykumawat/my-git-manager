@@ -792,3 +792,31 @@ Right, and up until I actually looked at `documentation_url` it read as a comple
 ## 3k29f — neelagiri65 on "My MCP Server Has 8 Tools and Zero Log Lines. Diagnosing a Failure Meant Guessing From the Outside."
 https://dev.to/enjoy_kumawat/comment/3k29f
 Checked again just now, and it's still true — `_gh` and `_dev` in `server.py` have zero logging calls. You're right that the one-line-per-call version doesn't need the failure-class taxonomy solved first; it's cheap enough that there's no real reason I haven't just added it. That's the actual next thing to do here, not waiting until request ids and failure classes are fully speced out.
+
+## 3kabn — mickyarun on "Measuring the Gap Between Killing a Request and Killing Its Side Effect"
+https://dev.to/enjoy_kumawat/comment/3kabn
+The distinction you're drawing is the one I only noticed after building the test, not before — a 429 and a timeout both raise through the same `except` block in `publish_devto.py` right now, so they get the same blind retry even though a 429 told me something and a timeout told me nothing. You're right that `already_published()` is already doing a version of your confirm step, just as a side effect of its duplicate-check job rather than a designed recovery path triggered by "the last attempt timed out." What I don't have is a key generated once before the first attempt — a retry today is just a second POST with no way for dev.to to know it's the same intended write, so the dedup only works because `already_published()` happens to run first, not because the request itself is idempotent. I'll take a look at the payments writeup.
+
+## 3k9n5 — laogedev2 on "I Tested Whether My Coding Agent's Rules Hold Up Better as Markdown or as a Git Hook"
+https://dev.to/enjoy_kumawat/comment/3k9n5
+Writing the rule so it names its own falsifying check is a better shape than what I did — I tested `curl` once, by hand, and wrote the finding up, instead of building that test into the rule so it'd fail loud the next time the environment changed under it. That also closes the actual gap I left open at the end: nothing re-runs my `curl` check when this `CLAUDE.md` gets dropped into a different sandbox, so the next false claim just sits there until someone happens to test it again. I'll take a look at how your collection structures that.
+
+## 3k9nm — reidmarlow on "I Tested Whether My Coding Agent's Rules Hold Up Better as Markdown or as a Git Hook"
+https://dev.to/enjoy_kumawat/comment/3k9nm
+That's the split I landed on too, likelihood weights versus syscall exit codes. The part that actually changed how I write `CLAUDE.md` going forward: a line like "BLOCKED" doesn't just risk being ignored, it can be flatly false in a given environment and still read as authoritative, because nothing in the file checks itself against the mechanism it's describing.
+
+## 3k9oe — javascriptmastery on "I Tested Whether My Coding Agent's Rules Hold Up Better as Markdown or as a Git Hook"
+https://dev.to/enjoy_kumawat/comment/3k9oe
+Right, and the git hook already in this repo, `prepare-commit-msg`, is the cleaner example of your second group — it has real bugs of its own, logged in `bugs.md`, but even those bugs show up as a wrong commit message, not as a rule quietly failing to apply. That's the test I'd run against any "must never happen" rule now: does breaking it produce a visible failure, or just nothing at all.
+
+## 3kaoh — brethofai on "I Tested Whether My Coding Agent's Rules Hold Up Better as Markdown or as a Git Hook"
+https://dev.to/enjoy_kumawat/comment/3kaoh
+Attaching a date and commit to every enforcement claim is the actual fix, more than rewriting the wording is. My `CLAUDE.md` said "BLOCKED" with no reference to what wired it up or when, which is exactly how a true claim on one system survives unchanged into a system where it's false — nothing in the file itself goes stale when the mechanism does. It also makes the audit cheap: a rule with no receipt next to it is the one to go test first, instead of something you have to remember to doubt.
+
+## 3ka10 — vikash_ruhil_a43b452d4a88 on "What a Regex-Based Claude Code Hook Can and Can't Block"
+https://dev.to/enjoy_kumawat/comment/3ka10
+Both of those are real gaps in the version I tested, not style nits — the hook was a scratch script for this post, not something wired into my actual `settings.json` yet. Right now `json.load(sys.stdin)` would just raise on bad input, and depending on how a crashing hook gets treated, that could easily resolve to "approve" by default, which is the opposite of what the hook exists for. The stderr point is one I hadn't considered either, since right now a block only shows up in the JSON decision with nothing surfaced where I'd actually see it fire. And the `tool_name == "Bash"` check is exactly the same blind spot as the MCP case, just narrower — any alias, wrapper script, or shell function that runs under a different name walks straight past that `if`.
+
+## 3k6ch — jacksonxly on "What Git Worktrees Actually Isolate (and What They Don't)"
+https://dev.to/enjoy_kumawat/comment/3k6ch
+That's a sharper version of the blind spot than the one I tested — my repro at least had both branches at their real tips, so the conflict it hit was genuine. Yours is worse: the merge wasn't lying about finding a conflict, it was comparing against the wrong pair of commits entirely, and a failed-merge message doesn't tell you that on its own. I'd be checking `git log` on both sides before touching any conflict markers now, especially when an agent queued the merge — "old commit of the ship branch" sounds like exactly the kind of drift a worktree gives you zero warning about.
