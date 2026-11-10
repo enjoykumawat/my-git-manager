@@ -18,11 +18,22 @@ from ME — the file's growth is otherwise invisible to the pipeline itself.
 
 Reads DEV_TO_API from .env next to this script.
 """
-import html, json, os, re, sys, urllib.error, urllib.request
+import html, json, os, re, sys, time, urllib.error, urllib.request
 
 ME = "enjoy_kumawat"
 HERE = os.path.dirname(os.path.abspath(__file__))
 DRAFTS = os.path.join(HERE, "drafts", "comment_replies.md")
+
+# Every dev.to 429 this pipeline has hit was retried with a different,
+# improvised backoff schedule each time (no code here ever slept or
+# retried at all) — half of ten logged incidents cleared within the same
+# run, half didn't and were only resolved by the next scheduled run,
+# hours later, with no code change in between. See
+# docs/project_notes/issues.md 2026-11-10. This schedule doesn't change
+# that ~50% ceiling (a retry loop can't out-wait a rate limit window
+# that's wider than its own budget) — it just makes every future "retried"
+# log line describe the same policy instead of a new one invented each time.
+RETRY_SCHEDULE = (10, 30, 60)
 
 
 def load_env():
@@ -47,19 +58,27 @@ def api(path):
     # just the literal default — see docs/project_notes/bugs.md 2026-07-25.
     # Any string avoiding that substring works; it doesn't need to look like a browser.
     req.add_header("User-Agent", "Mozilla/5.0")
-    try:
-        return json.load(urllib.request.urlopen(req, timeout=30))
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"dev.to API error {e.code}: {e.read().decode()[:400]}") from e
-    except urllib.error.URLError as e:
-        # HTTPError (above) is itself a URLError subclass and only covers
-        # responses with an actual HTTP status — a timeout, DNS failure, or
-        # connection-refused on this call's `timeout=30` raises the plainer
-        # URLError instead, which was still an uncaught raw traceback here
-        # even after the 2026-08-03 HTTPError fix. Flagged live-verified-
-        # but-unfixed in issues.md 2026-08-04, still open until now. See
-        # docs/project_notes/bugs.md 2026-08-08.
-        raise RuntimeError(f"dev.to API network error: {e.reason}") from e
+    for wait in (0,) + RETRY_SCHEDULE:
+        if wait:
+            time.sleep(wait)
+        try:
+            return json.load(urllib.request.urlopen(req, timeout=30))
+        except urllib.error.HTTPError as e:
+            if e.code != 429:
+                raise RuntimeError(f"dev.to API error {e.code}: {e.read().decode()[:400]}") from e
+            last_err = e
+        except urllib.error.URLError as e:
+            # HTTPError (above) is itself a URLError subclass and only covers
+            # responses with an actual HTTP status — a timeout, DNS failure, or
+            # connection-refused on this call's `timeout=30` raises the plainer
+            # URLError instead, which was still an uncaught raw traceback here
+            # even after the 2026-08-03 HTTPError fix. Flagged live-verified-
+            # but-unfixed in issues.md 2026-08-04, still open until now. See
+            # docs/project_notes/bugs.md 2026-08-08.
+            raise RuntimeError(f"dev.to API network error: {e.reason}") from e
+    raise RuntimeError(
+        f"dev.to API error 429 after {len(RETRY_SCHEDULE)} retries: still rate-limited"
+    ) from last_err
 
 
 def strip_html(h):
@@ -448,6 +467,80 @@ if __name__ == "__main__":
             os.unlink(_env_path)
             os.environ.pop("DEV_TO_API", None)
             os.environ.pop("DEV_TO_API ", None)
+
+        # api() used to have no retry/backoff at all — every 429 propagated
+        # immediately as a RuntimeError, and the actual retrying happened
+        # ad hoc, each time with a different improvised schedule, at the
+        # task-prompt level instead of in code (see docs/project_notes/
+        # issues.md 2026-11-10). Verify the real retry loop: first two
+        # calls 429, third succeeds — must return the real payload and
+        # sleep exactly twice (RETRY_SCHEDULE[:2]), not retry forever or
+        # give up early.
+        _orig_urlopen = urllib.request.urlopen
+        _orig_sleep = time.sleep
+        _attempts = []
+        _slept = []
+
+        class _FakeResp429:
+            def read(self):
+                return b"rate limited"
+
+        def _fake_urlopen_429_then_ok(req, timeout=30):
+            _attempts.append(1)
+            if len(_attempts) < 3:
+                raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", None, None)
+            return _FakeResp429Ok()
+
+        class _FakeResp429Ok:
+            def read(self):
+                return json.dumps({"ok": True}).encode()
+
+        urllib.request.urlopen = _fake_urlopen_429_then_ok
+        time.sleep = lambda s: _slept.append(s)
+        try:
+            result = api("/test")
+            assert result == {"ok": True}, result
+            assert len(_attempts) == 3, _attempts
+            assert _slept == [RETRY_SCHEDULE[0], RETRY_SCHEDULE[1]], _slept
+        finally:
+            urllib.request.urlopen = _orig_urlopen
+            time.sleep = _orig_sleep
+
+        # Exhausting the whole schedule on a 429 that never clears must
+        # still raise a clean RuntimeError, not loop forever or crash with
+        # an unbound `last_err`.
+        def _fake_urlopen_always_429(req, timeout=30):
+            raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", None, None)
+
+        urllib.request.urlopen = _fake_urlopen_always_429
+        time.sleep = lambda s: _slept.append(s)
+        try:
+            try:
+                api("/test")
+                assert False, "must raise after exhausting RETRY_SCHEDULE"
+            except RuntimeError as e:
+                assert "429" in str(e), e
+        finally:
+            urllib.request.urlopen = _orig_urlopen
+            time.sleep = _orig_sleep
+
+        # A non-429 HTTPError must still fail immediately, no retries.
+        _attempts2 = []
+
+        def _fake_urlopen_404(req, timeout=30):
+            _attempts2.append(1)
+            raise urllib.error.HTTPError(req.full_url, 404, "Not Found", None, None)
+
+        urllib.request.urlopen = _fake_urlopen_404
+        try:
+            try:
+                api("/test")
+                assert False, "non-429 HTTPError must not be retried"
+            except RuntimeError as e:
+                assert "404" in str(e), e
+            assert len(_attempts2) == 1, _attempts2
+        finally:
+            urllib.request.urlopen = _orig_urlopen
 
         print("selftest ok")
     elif sys.argv[1:2] == ["pending"]:
