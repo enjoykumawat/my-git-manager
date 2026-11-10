@@ -6,7 +6,32 @@ import subprocess
 import sys
 import urllib.request
 import urllib.error
-from mcp.server.fastmcp import FastMCP
+
+def _mcp_import_error_message(executable, version):
+    # `pip install -r requirements.txt` and the `python`/`python3` that runs
+    # this file are not guaranteed to be the same interpreter — `pip show mcp`
+    # can report the package installed while `import mcp` still fails here,
+    # if pip is bound to a different Python than sys.executable. Checked live
+    # 2026-11-10: `pip --version` reported "(python 3.13)" while this script
+    # was running under 3.11, so `mcp` was installed and fully importable,
+    # just never on this interpreter's sys.path. See bugs.md 2026-11-10.
+    return (
+        "ERROR: 'mcp' is not importable under this interpreter "
+        f"({executable}, Python {version}).\n"
+        "Run `pip show mcp` and compare the '(python X.Y)' it prints against "
+        "the version above — if they differ, `pip`/`python3` point at two "
+        "different installs. Install with the exact interpreter that will "
+        "run this file: `python3 -m pip install -r requirements.txt`, then "
+        "retry with that same `python3`."
+    )
+
+
+try:
+    from mcp.server.fastmcp import FastMCP
+except ModuleNotFoundError as e:
+    if e.name != "mcp":
+        raise
+    sys.exit(_mcp_import_error_message(sys.executable, sys.version.split()[0]))
 
 GITHUB_USERNAME = "enjoykumawat"
 DEV_USERNAME = "enjoy_kumawat"
@@ -1135,6 +1160,14 @@ if __name__ == "__main__":
                 globals()["_dev"] = _orig_dev_for_tags
 
         asyncio.run(_null_field_regression())
+
+        # _mcp_import_error_message: wrong-interpreter case names both the
+        # interpreter actually running and the fix (same `python3` for pip
+        # and the script), rather than letting a bare ModuleNotFoundError
+        # traceback stand in for "mcp isn't installed." See bugs.md 2026-11-10.
+        _msg = _mcp_import_error_message("/usr/local/bin/python3", "3.11.18")
+        assert "/usr/local/bin/python3" in _msg and "3.11.18" in _msg
+        assert "pip show mcp" in _msg and "python3 -m pip install" in _msg
 
         print("selftest ok")
         raise SystemExit(0)
