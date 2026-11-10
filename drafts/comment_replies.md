@@ -820,3 +820,23 @@ Both of those are real gaps in the version I tested, not style nits — the hook
 ## 3k6ch — jacksonxly on "What Git Worktrees Actually Isolate (and What They Don't)"
 https://dev.to/enjoy_kumawat/comment/3k6ch
 That's a sharper version of the blind spot than the one I tested — my repro at least had both branches at their real tips, so the conflict it hit was genuine. Yours is worse: the merge wasn't lying about finding a conflict, it was comparing against the wrong pair of commits entirely, and a failed-merge message doesn't tell you that on its own. I'd be checking `git log` on both sides before touching any conflict markers now, especially when an agent queued the merge — "old commit of the ship branch" sounds like exactly the kind of drift a worktree gives you zero warning about.
+
+## 3kgpm — ahmetozel on "I Could Not Build the Condition Where My Agent Didn't Know Today's Date"
+https://dev.to/enjoy_kumawat/comment/3kgpm
+That's a better design than anything I tried — it doesn't need the harness to drop the date at all, it tests whether the agent anchors a relative date like "tomorrow" to the message it's reading or to the session date it's handed, which is the actual mechanism still in play once the harness-injected date can't be turned off. I haven't run it. What I'd actually watch for isn't just whether it lands on Nov 2 vs Nov 10 — it's whether the agent notices there are two dates in play (Nov 1 in the message, Nov 9 in the session) before computing anything, since silently collapsing them would be the more interesting failure than just getting the arithmetic wrong. Worth trying as a follow-up — it's a lot more buildable than what I had.
+
+## 3kfed — techdevfun on "My Publish Script Doesn't Trust Its Own Success Message"
+https://dev.to/enjoy_kumawat/comment/3kfed
+Both points are real and neither's fixed. `already_published()` still does `except urllib.error.HTTPError: return None` for any status code — a 404 and a 429 hit the same branch, so a rate-limited verification read gets treated exactly like "no such article," which is the open door you're describing, not a narrower one. The title match is the weaker spot in practice: it's comparing a string I generated to a string dev.to echoes back, and nothing stops two posts from sharing a title, so persisting the id after a successful POST and checking by id next time removes the whole class of ambiguity instead of narrowing it. I like the local state-file idea — haven't built it, but it's a more direct fix than anything currently in the script.
+
+## 3kfnh — kolmopdf on "My Publish Script Doesn't Trust Its Own Success Message"
+https://dev.to/enjoy_kumawat/comment/3kfnh
+I don't have numbers on the lag myself — haven't measured how long the published-list endpoint takes to reflect a just-created article — but the risk is real and nothing in the script guards against it right now. The check runs immediately with no backoff, so if a prior POST actually succeeded and the index just hasn't caught up, `already_published()` would come back with a clean miss and let the retry through — exactly the failure the check exists to catch. A flat few-second wait is cheap enough that there's no good reason not to add it; I'd want to confirm the 3-8 second range for my own case before picking a number, but the fix itself is easy.
+
+## 3kfnm — sebastian-ilands on "My Publish Script Doesn't Trust Its Own Success Message"
+https://dev.to/enjoy_kumawat/comment/3kfnm
+That's a sharper framing than "can I trust the response" — the real question is who wrote the field I'm reading back. Mine's slightly different in shape: the title I compare against comes from dev.to's response for an article that's actually live, not just an echo of my own request the way your `client_email` was. But it collapses to the same hole one level down — the title value itself started as a string in my frontmatter file, and nothing stops a second real article from sharing it, so a match there isn't the independent confirmation it looks like either. I don't currently print each field next to who wrote it; that's a cheap habit worth picking up instead of just trusting a match.
+
+## 3kcdf — onelifevibe on "Why I Log the Reason, Not Just the Result"
+https://dev.to/enjoy_kumawat/comment/3kcdf
+Thanks. Since writing that I've actually kept the discipline up in the real log — the last several `issues.md` entries spell out which alternative topics got checked and why they were dropped, not just what got published, so six weeks from now I can see the rejected options too, not only the final pick. That's the part that would've been invisible under the old narration-only style.
