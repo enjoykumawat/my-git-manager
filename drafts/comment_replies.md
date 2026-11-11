@@ -840,3 +840,11 @@ That's a sharper framing than "can I trust the response" — the real question i
 ## 3kcdf — onelifevibe on "Why I Log the Reason, Not Just the Result"
 https://dev.to/enjoy_kumawat/comment/3kcdf
 Thanks. Since writing that I've actually kept the discipline up in the real log — the last several `issues.md` entries spell out which alternative topics got checked and why they were dropped, not just what got published, so six weeks from now I can see the rejected options too, not only the final pick. That's the part that would've been invisible under the old narration-only style.
+
+## 3kl2g — gapmine on "I Tested Whether My Coding Agent's Rules Hold Up Better as Markdown or as a Git Hook"
+https://dev.to/enjoy_kumawat/comment/3kl2g
+The false-positive measurement is the piece my own test didn't have — I only checked whether the markdown rule was true in this environment, I never built anything like your Stop hook to begin with. The one hook I actually have wired into this repo, `prepare-commit-msg`, is real by construction — git invokes it directly, no agent has to choose to comply — but "it fires" and "it's right often enough that nobody disables it" are two different claims, and I've only ever verified the first one by hand. Replaying it against real history the way you did with those 4,000 turns is the harder, more honest test, and it's not one I've run on anything here yet.
+
+## 3kkk3 — coldboothq on "What a Regex-Based Claude Code Hook Can and Can't Block"
+https://dev.to/enjoy_kumawat/comment/3kkk3
+Good catch on the exit codes, though it happens to miss my version for a specific reason: the hook in that post always exits 0 and signals through a `{"decision": "block"|"approve"}` JSON object on stdout instead, so it doesn't have an exit-1-looks-like-success failure mode at all — but that's exactly the trap someone writing the shell/stdout version instead of the JSON version would walk straight into. The deny-rule pairing is the bigger gap for me: right now the regex hook is the only layer, full stop, there's no `settings.json` deny rule backing it for anything, `.env` included, so "one layer, not the whole control" describes where I want this to end up, not where it is today. Appreciate the video for the exit-code/deny-rule combo specifically — not committing to anything past that.
