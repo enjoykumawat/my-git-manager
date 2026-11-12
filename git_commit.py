@@ -34,7 +34,15 @@ _STRIP_PATTERNS = [
     # label) so a genuinely unrelated commit about a "reviewed-by:" field or
     # a "signed-off-by" DCO bot isn't caught by this. See
     # docs/project_notes/bugs.md 2026-08-12.
-    r"\b(signed-off-by|reviewed-by|acked-by|tested-by|reported-by|co-developed-by|assisted-by)\s*:\s*(claude|chatgpt|copilot|anthropic|ai|llm)\b",
+    # The value alternation above was built from this project's own incident
+    # history (claude/chatgpt/copilot/anthropic/ai/llm) — every name an AI
+    # actually left a trailer under *here*. It was never checked against the
+    # other AI name this repo's own CLAUDE.md names explicitly ("codex will
+    # review what you done"): a trailer like "Reviewed-by: Codex" or
+    # "Signed-off-by: Codex" doesn't match any alternative and sails through
+    # unstripped, and neither does "gemini". See docs/project_notes/bugs.md
+    # 2026-11-12.
+    r"\b(signed-off-by|reviewed-by|acked-by|tested-by|reported-by|co-developed-by|assisted-by)\s*:\s*(claude|chatgpt|copilot|anthropic|ai|llm|codex|gemini)\b",
     r"noreply@anthropic\.com",
 ]
 _STRIP_RE = re.compile("|".join(_STRIP_PATTERNS), re.IGNORECASE)
@@ -78,6 +86,14 @@ if "--selftest" in sys.argv:
         # Benign vocabulary overlap — must still survive.
         ("docs: add reviewed-by field to PR template generator", False),
         ("feat: signed-off-by trailer support for DCO bot", False),
+        # CLAUDE.md names Codex as this repo's own second reviewer; the
+        # value alternation never covered it (or Gemini) until now — see
+        # docs/project_notes/bugs.md 2026-11-12.
+        ("Reviewed-by: Codex", True),
+        ("Signed-off-by: Codex <codex@openai.com>", True),
+        ("Assisted-by: Gemini", True),
+        # Still must not strip a plain technical mention of codex.
+        ("fix: codex flagged this off-by-one, fixed per its review", False),
     ]
     for line, expect_stripped in _CASES:
         got = bool(_STRIP_RE.search(line))
