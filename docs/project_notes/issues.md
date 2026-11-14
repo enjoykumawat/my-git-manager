@@ -1419,3 +1419,7 @@
 - Tags: mcp, python, devtools, debugging; ai, agents, devtools, debugging. Sources: `drafts/mcp-2x-structured-output-only-shows-up-if-return-type-asks.md`, `drafts/when-this-repos-clones-shallow-two-months-of-history-disappear.md`. No production code changes this run.
   - https://dev.to/enjoy_kumawat/mcp-2xs-structured-output-only-shows-up-if-your-return-type-asks-for-it-5b5
   - https://dev.to/enjoy_kumawat/when-this-repos-container-clones-shallow-two-months-of-its-own-bug-history-disappear-2845
+
+### 2026-11-14 - DEV.to comment-reply pipeline: 1 reply drafted
+
+- `reply_comments.py pending` returned clean on the first attempt. 1 pending top-level comment found on "MCP 2.x's Structured Output Only Shows Up If Your Return Type Asks for It" (frankshan001). Substantive — no spam/skip this run. The commenter asked whether `content[0].text` still carries the same JSON alongside `structured_content` for the TypedDict case, letting a client reading the old field keep working during a gradual migration. Reread the article's own test output before answering: it only printed `structured_content` for the TypedDict run, never the full `CallToolResult` repr the way it did for the bare-dict run, so that specific question was never actually checked here. Answered honestly that it's unverified rather than guessing an answer, noting the bare-dict repr did show both fields together as the only data point available.
