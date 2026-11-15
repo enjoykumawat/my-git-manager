@@ -853,3 +853,28 @@ Good catch on the exit codes, though it happens to miss my version for a specifi
 https://dev.to/enjoy_kumawat/comment/3l5en
 
 Honestly, I don't know for sure — I only checked `structured_content` for the TypedDict case, I never dumped the full `CallToolResult` repr the way I did for the bare-dict run, so I can't tell you whether `content[0].text` was still populated alongside it. The bare-dict repr I did print had both `content` and `structured_content=None` together, which makes me suspect the SDK keeps filling `content` as a fallback either way, but that's an inference from one case, not something I verified on the typed path. Worth going back and actually checking before anyone treats it as settled for a gradual migration — exactly the kind of "quietly worked, never confirmed" gap this post was about in the first place.
+
+## 3l6m2 — frankshan001 on "I Checked How Many of My MCP Server's 53 Logged Bugs Were Actually the Protocol's Fault"
+https://dev.to/enjoy_kumawat/comment/3l6m2
+
+Kept both, didn't migrate. The fix I actually shipped adds one new `mcp.call_tool()` regression specifically for the gap bug one exposed — `title=None` (and the same for `published`/`expected_fingerprint`/`tags`) going through FastMCP's real pydantic schema instead of being called as plain Python. Every pre-existing case in `--selftest` — the confirm gate, the fingerprint-staleness check, the duplicate-title guard — still calls `update_article()` directly, not through `mcp.call_tool()`. So it's narrower than "moved `--selftest` onto the protocol path": one specific bug got a protocol-shaped test added next to the direct-call ones, the rest of the suite didn't move. CutVoke's subprocess-stdio approach is a more thorough version of catching that same class of gap — testing the literal transport, not just the one validation layer I happened to get bitten by.
+
+## 3l716 — kolmopdf on "I Checked How Many of My MCP Server's 53 Logged Bugs Were Actually the Protocol's Fault"
+https://dev.to/enjoy_kumawat/comment/3l716
+
+Both real gaps, neither closed. What I added only covers "key present with an explicit null" going through `mcp.call_tool()` — the omitted-field case is still only exercised by calling `update_article()` directly in Python, which never touches pydantic validation at all, so you're right that they're two different paths and only one of them actually has a protocol-level test. And no, I don't have the invalid-value-plus-`confirm=True` case asserting zero upstream PUTs — the `_put_calls` counter check I do have is for the no-confirm case on valid input, not a schema-rejected value carrying `confirm=True`. Worth adding; as written a malformed call with `confirm=True` just hasn't been tested to confirm it dies before the PUT rather than after.
+
+## 3l5kk — reidmarlow on "A Cyclomatic Complexity Audit of My Own MCP Server: The Fix With the Most Safety Checks Scored the Worst"
+https://dev.to/enjoy_kumawat/comment/3l5kk
+
+Haven't built it, but looking at the four blocks again next to your suggestion, it's a clean fit — they really are the same shape (same `diff` dict, same `applied: False`, different reason string), which is most of where `update_article`'s extra branches and lines come from. A preflight function returning a rejection dict or `None` before the PUT would let every guard's logic get unit-tested without mocking HTTP, which I don't currently do at all for those four checks. On `load_env`: that's a real, already-logged finding, not new — it's sitting in `issues.md` as a side effect of this same complexity run, duplicated near-verbatim across five of the seven files, and nothing's consolidated it into a shared import yet.
+
+## 3l7fa — paul_irolla_6b5ae261d0224 on "A Cyclomatic Complexity Audit of My Own MCP Server: The Fix With the Most Safety Checks Scored the Worst"
+https://dev.to/enjoy_kumawat/comment/3l7fa
+
+Right, and that's basically the whole article in two sentences. A linter reading `cyclomatic complexity: 15` can't tell the difference between fifteen ways to break and fifteen ways to refuse to — it just counts the branch, which is why the worst-scoring function here is also the most defended one, not the sloppiest.
+
+## 3l64g — dooly6276 on "What a Regex-Based Claude Code Hook Can and Can't Block"
+https://dev.to/enjoy_kumawat/comment/3l64g
+
+That target-expansion row is a sharper test case than anything in my four, and it names exactly why a blocklist regex is the wrong shape for this: `\brm\s+-rf\b` can't tell `rm -rf node_modules` from `rm -rf "$BUILD_DIR"/*` with an empty var, because both are the same three tokens and only the runtime value of one of them decides whether it's fine. Splitting into words and judging the target (empty-able variable, drive root, home, an existing `.git`) is a real step up from string-matching the verb, and rewriting toward the safe form instead of just refusing is a better failure mode than my hook has — mine only ever says no. The `x=rf; rm -$x` case in my post is the same blind spot one layer further back: even your approach needs the shell to actually expand the variable before judging the target, so a sufficiently indirect construction still has to be caught by something other than static inspection of the string. I'll leave the `claude-bulkhead` check unevaluated for now — this repo's hook is still the five-line regex in the post, nothing past that's been tried.
