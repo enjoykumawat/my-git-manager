@@ -1512,3 +1512,6 @@
 - Tags: python, debugging, devtools, security; mcp, python, devtools, ai. Sources: `drafts/what-happens-to-138-asserts-under-python-O.md`, `drafts/how-to-tell-if-mcp-server-needs-resources.md`. No production code changed this run (measurement only, one fix proposed but not applied).
   - https://dev.to/enjoy_kumawat/what-happens-to-138-assert-based-checks-when-you-run-them-with-python-o-2m29
   - https://dev.to/enjoy_kumawat/how-to-tell-whether-your-mcp-server-actually-needs-resources-not-just-tools-54cm
+
+### 2026-11-17 - DEV.to comment-reply pipeline: 2 replies drafted
+- 2 pending top-level comments found, one each on "Schema-Enforced JSON Never Failed Parsing; Getting There Cost Three Times the Tokens" (fortitudeomnis, questioning whether the cost number is a cold-cache-write artifact rather than a schema cost, since Version A was never run with `--output-format json`) and "Three Gaps I Had to Fill Because the MCP Spec Leaves Them Open" (shansjl, comparing CutVoke's required-revision + single-transaction compare-and-set against this repo's optional `expected_fingerprint`). No spam/skips this run.
