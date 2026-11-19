@@ -283,6 +283,11 @@ def list_repos(sort: str = "updated", limit: int = 10) -> list:
         repos = sorted(repos, key=lambda r: r[_REPO_CLIENT_SORT_KEYS[sort]], reverse=True)[:limit]
     else:
         repos = repos[:limit]
+    # GitHub's raw repo object has 95 fields (measured live against this repo's own
+    # /repos/enjoykumawat/my-git-manager response, 2026-11-19). These 7 are kept because
+    # they're the only ones this tool's actual callers have ever used: picking which repo
+    # is meant (name/description/url) and judging whether it looks active (stars/forks/
+    # language/updated_at). Add a field here only once a real caller needs it.
     return [
         {
             "name": r["name"],
@@ -301,6 +306,9 @@ def list_repos(sort: str = "updated", limit: int = 10) -> list:
 def get_repo_stats(repo: str) -> dict:
     """Get stars, forks, watchers, open issues for enjoykumawat/<repo>."""
     r = _gh(f"/repos/{GITHUB_USERNAME}/{repo}")
+    # Same 95-field raw response as list_repos, a different 7-field cut: this tool
+    # answers "how healthy does this one repo look right now," not "which repo is
+    # this," so watchers/open_issues earn their place here where they wouldn't above.
     return {
         "name": r["name"],
         "stars": r["stargazers_count"],
