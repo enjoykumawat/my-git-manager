@@ -888,3 +888,33 @@ Fair catch, and I think you're right about where the asymmetry actually comes fr
 https://dev.to/enjoy_kumawat/comment/3l84g
 
 Making the revision required rather than optional is the detail I'd steal first — my `expected_fingerprint` being optional is exactly the gap you're pointing at, since a caller that skips it (or an agent that decides a conflict is just a retry signal) gets the old last-write-wins behavior back with none of the preview logic stopping it. The transaction point is the harder one for me to close: DEV.to's REST API doesn't give me a conditional write primitive to build a real compare-and-set on top of, so my check is GET-fingerprint-then-PUT with a real window in between, not one atomic operation the way `BEGIN IMMEDIATE` gets you on your own SQLite file. Without owning the datastore on the other end, I don't think I can fully close that gap, only narrow it. Appreciate the detailed writeup — I'll leave the CutVoke comparison itself for later, but the "schema says a type, the commit path says what it means" framing is going straight into how I think about this.
+
+## 3lla2 — junfengzhou01 on "If My list_repos Tool Returned Everything GitHub Sends Back, an Agent Would Have to Read 95 Fields Just to Use 7"
+https://dev.to/enjoy_kumawat/comment/3lla2
+
+That's a good half-fix — telling the agent more exists costs nothing, and the dict comprehension already knows exactly which 88 fields it dropped, so the note wouldn't even need separate upkeep. One correction though: there's no `get_repo` tool in this server to point at — the other GitHub tool is `get_repo_stats`, which keeps its own different seven-field cut for a different question (how healthy does this repo look, not which repo is this), not the raw 95. I'd phrase the note as "other fields exist, call `get_repo_stats` for a health view" rather than implying the full raw object is reachable anywhere, because it isn't.
+
+## 3lio4 — parasraju on "I Denied Read Access to .env, but grep Still Found It"
+https://dev.to/enjoy_kumawat/comment/3lio4
+
+That tracks with what I found — once an agent can drop to a shell, a path-scoped deny rule on `Read` doesn't reach the actual bytes. I haven't used envpeek myself so I can't speak to how it closes the gap, but the fact that the bypass was common enough for someone to build a dedicated tool around it says this is a real hole in Claude Code's per-tool permission scoping, not just a misconfiguration on my end.
+
+## 3lk1h — timmyzinin on "list_repos(limit=1, sort=\"stars\") Still Downloads 100 Repos From GitHub"
+https://dev.to/enjoy_kumawat/comment/3lk1h
+
+I haven't added that — the response right now is just the plain list of repo dicts, no wrapper object. Thinking about it, I'd lean toward logging the real `per_page` server-side instead of putting it in the tool response: an agent reading `fetch_size: 100` back has to decide what to do with that number on every single call, including the four sort values where it's always honest, and I'd rather that be noise I filter out of my own logs than signal every caller has to parse. If I did add it to the response, it'd be a debug-only field gated behind something the normal call path isn't paying for.
+
+## 3lh2a — x1y1co on "Claude Code's PreToolUse Hook Only Blocks a Tool Call on Exit Code 2, and Every Other Failure Mode Lets It Run Anyway"
+https://dev.to/enjoy_kumawat/comment/3lh2a
+
+The canary idea is the right fix, and it's more needed here than I made it sound in the post — this routine's actual guardrail-worthy tools are MCP tools (`update_article`, `create_article`), not Bash, and I don't have a `PreToolUse` hook on any MCP matcher at all right now, only the Bash one from the post. The fresh-container case is also live here, not hypothetical: `scripts/install-hooks.sh` has to be re-run every session because `.git/hooks/` doesn't survive a new container, and nothing currently fails loud if that step gets skipped — it just quietly runs with no hook installed at all. A startup canary that runs a command it expects `permission_denials` to catch would surface exactly that silent case.
+
+## 3lj7l — skillselion on "Claude Code's PreToolUse Hook Only Blocks a Tool Call on Exit Code 2, and Every Other Failure Mode Lets It Run Anyway"
+https://dev.to/enjoy_kumawat/comment/3lj7l
+
+Good catch on the stderr leak — I hadn't thought about the model reading a crash traceback as "the reason my call got blocked" and trying to debug the hook instead of doing the actual task, but that's exactly what `echo "$output" >&2` on exit 2 hands it. Printing one fixed line and logging the real detail elsewhere is a cheap change worth making. I haven't tested `onFailure: block` on v2.1.295+ myself, so I can't confirm it cleanly closes the crash case rather than just moving where the failure shows up — but you're right that it wouldn't touch a script that deliberately exits 0 on its own logic error, since from Claude Code's side that's just a hook that said "allow."
+
+## 3lfg0 — alexshev on "The Only Reliable Guardrail Around My DEV.to Publishing Script Is One I Didn't Write"
+https://dev.to/enjoy_kumawat/comment/3lfg0
+
+That's a cleaner frame than what I actually log today. `_log_article_update` writes before/after state and which keys changed to a local `logs/article_updates.jsonl`, but it's a record of what happened to the content, not a decision record — no policy version, and no reason captured for calls the fingerprint or duplicate-title guards reject, since those just return a dict to the caller and leave no trace once that response is read. Attaching a decision record to every blocked call too, not only the permitted writes, would let me actually check the deny path is firing as often as I assume instead of just trusting that the code still matches what I remember writing.
