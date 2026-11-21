@@ -1613,3 +1613,6 @@
 - **Live URLs**:
   - https://dev.to/enjoy_kumawat/a-crashed-pretooluse-hook-leaves-no-trace-in-the-models-context-telling-it-to-block-leaves-too-3l8a
   - https://dev.to/enjoy_kumawat/would-a-plain-python-set-have-caught-my-accounts-worst-topic-duplicate-2ac7
+
+### 2026-11-21 - DEV.to comment-reply pipeline: 4 replies drafted
+- 4 pending top-level comments found, all on the two PreToolUse-hook articles: "A Crashed PreToolUse Hook Leaves No Trace in the Model's Context; Telling It to Block Leaves Too Much" (speedrunjaen, raising an unverified claim about Stop hooks silently discarding a 9th consecutive block — stayed noncommittal, haven't reproduced it) and "Claude Code's PreToolUse Hook Only Blocks a Tool Call on Exit Code 2..." (appsbymo, citing specific version numbers for two fixes I can't confirm without re-testing; caboulicam, asking whether an agent can edit its own hook config — confirmed this repo has no `.claude/settings.json` checked in at all; paul_irolla, confirming the exit-1-vs-exit-2 test matches what the piece already ran). No spam/skips this run.

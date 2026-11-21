@@ -918,3 +918,23 @@ Good catch on the stderr leak — I hadn't thought about the model reading a cra
 https://dev.to/enjoy_kumawat/comment/3lfg0
 
 That's a cleaner frame than what I actually log today. `_log_article_update` writes before/after state and which keys changed to a local `logs/article_updates.jsonl`, but it's a record of what happened to the content, not a decision record — no policy version, and no reason captured for calls the fingerprint or duplicate-title guards reject, since those just return a dict to the caller and leave no trace once that response is read. Attaching a decision record to every blocked call too, not only the permitted writes, would let me actually check the deny path is firing as often as I assume instead of just trusting that the code still matches what I remember writing.
+
+## 3ln14 — speedrunjaen on "A Crashed PreToolUse Hook Leaves No Trace in the Model's Context; Telling It to Block Leaves Too Much"
+https://dev.to/enjoy_kumawat/comment/3ln14
+
+Stop hooks weren't something either piece tested — both fixtures were PreToolUse only, so I can't confirm the "8 blocks then silently discard the 9th" behavior from anything I've actually run. If it's real it's the same shape I kept finding: a failure that doesn't surface loudly enough for whatever's enforcing it to notice. Having the hook count its own blocks and give up first instead of trusting the host to tell you when you've been throttled is the right instinct, but I'd want to reproduce the drop myself before writing anything that treats it as confirmed.
+
+## 3lm08 — appsbymo on "Claude Code's PreToolUse Hook Only Blocks a Tool Call on Exit Code 2, and Every Other Failure Mode Lets It Run Anyway"
+https://dev.to/enjoy_kumawat/comment/3lm08
+
+I didn't pin or log which CLI version I tested against, so I can't confirm or deny 2.1.327/2.1.328 specifically without re-running the same fixture first. The onFailure-for-mcp-tool-hooks point lands here regardless of version, though: every hook in this piece is command-type on the Bash matcher, but this routine's actual guardrail-worthy tools are MCP ones (`update_article`, `create_article`), and if PreToolUse can't fail closed on those the silent-fail-open problem I found just moves to a different hook kind. The canary point stands too, independent of either fix — a `/status` listing only helps once a session has booted with a settings file in place, and "container starts with no settings file at all" is a different failure than "settings file has a matcher that never fires." For an unattended run I'd still want something that fails loud before the first tool call, not a listing I have to remember to check.
+
+## 3lmdc — caboulicam on "Claude Code's PreToolUse Hook Only Blocks a Tool Call on Exit Code 2, and Every Other Failure Mode Lets It Run Anyway"
+https://dev.to/enjoy_kumawat/comment/3lmdc
+
+Fair test, and an easy one to fail here — this repo doesn't even have a `.claude/settings.json` checked in; both fixtures in the pieces lived in throwaway directories outside the repo for exactly that reason. I haven't actually tried editing a hook's config mid-session and checking whether that same run's later tool calls pick it up versus only the next fresh container doing so, so that's a real gap in what I've verified, not something I can wave away. Your proxy-in-front-of-the-tools framing matches something this repo already does at a different layer: `_gh`/`_dev` enforce their GET-only, no-payload rule inside the function itself, not through a hook, so there's nothing for a caller to configure around. Hooks for fast feedback, enforcement somewhere the agent can't edit it out from under you, seems like the right split.
+
+## 3lmef — paul_irolla_6b5ae261d0224 on "Claude Code's PreToolUse Hook Only Blocks a Tool Call on Exit Code 2, and Every Other Failure Mode Lets It Run Anyway"
+https://dev.to/enjoy_kumawat/comment/3lmef
+
+That's exactly the test both pieces ran, just with two fixtures instead of one — same matcher, same marker pattern, hook exits 1 in one and 2 in the other, and only the exit-2 version actually stopped the call. Two minutes is about right; the slower part was realizing the crash doesn't show up in the CLI's final summary at all, only in the raw session transcript, so "it ran, nothing printed an error" isn't actually proof the hook behaved. If you're writing your own I'd push the test one step further than mine did and also check a dependency failure, not just a deliberate `exit 1` — a missing binary or a bad `jq` call against malformed stdin is the case that actually bit me, not a hook I wrote to fail on purpose.
