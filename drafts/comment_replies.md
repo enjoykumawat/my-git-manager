@@ -938,3 +938,43 @@ Fair test, and an easy one to fail here — this repo doesn't even have a `.clau
 https://dev.to/enjoy_kumawat/comment/3lmef
 
 That's exactly the test both pieces ran, just with two fixtures instead of one — same matcher, same marker pattern, hook exits 1 in one and 2 in the other, and only the exit-2 version actually stopped the call. Two minutes is about right; the slower part was realizing the crash doesn't show up in the CLI's final summary at all, only in the raw session transcript, so "it ran, nothing printed an error" isn't actually proof the hook behaved. If you're writing your own I'd push the test one step further than mine did and also check a dependency failure, not just a deliberate `exit 1` — a missing binary or a bad `jq` call against malformed stdin is the case that actually bit me, not a hook I wrote to fail on purpose.
+
+## 3m043 — max_quimby on "A Skill I Never Invoked Overruled My CLAUDE.md Anyway"
+https://dev.to/enjoy_kumawat/comment/3m043
+
+Skill won every time it was present in what I actually ran — case-c had CLAUDE.md saying EPSILON-WINS and the skill saying ZETA-WINS, and both the silent auto-trigger and the explicit `/magicword` call came back ZETA-WINS. I never got a variant where CLAUDE.md beat it once the skill's description matched. That's one skill, one CLI version, zero attempts at a config meant to favor CLAUDE.md over an already-loaded skill, so I can't tell you there's a knob that flips it back — just that in the only shape I tested, the skill was undefeated.
+
+## 3m096 — robertpaschal on "A Skill I Never Invoked Overruled My CLAUDE.md Anyway"
+https://dev.to/enjoy_kumawat/comment/3m096
+
+Didn't test that case — case-c only ever had one skill on disk, so there was nothing for a matcher to disambiguate between. My guess is it comes down to whatever Claude Code's own skill-selection logic uses to rank candidates, maybe match specificity, maybe file order as a tiebreaker, but that's a guess, not something I ran. It's the obvious next test: two skills with overlapping descriptions, same throwaway-fixture approach as this one.
+
+## 3m0eb — robertpaschal on "A Skill I Never Invoked Overruled My CLAUDE.md Anyway"
+https://dev.to/enjoy_kumawat/comment/3m0eb
+
+Right, both load, the conflict's real, not a quirk of one weirdly-configured sandbox. One correction though: I didn't actually use a `--settings` flag to point at the fixtures — I just ran `claude -p` from inside each throwaway directory (case-a, case-b, etc.) and let normal auto-discovery pick up whatever CLAUDE.md/AGENTS.md/skill happened to be sitting there. If `--settings` also works for pointing a headless run at an alternate config, that's a real technique, I just didn't test it that way.
+
+## 3m0f7 — paullovelace on "A Skill I Never Invoked Overruled My CLAUDE.md Anyway"
+https://dev.to/enjoy_kumawat/comment/3m0f7
+
+Honestly don't know — case-c only had one skill on disk, so two-descriptions-matching never came up in what I ran. If I had to guess, it's whatever the CLI's internal matcher uses to rank skill descriptions against the prompt, maybe closer string/semantic match, maybe file order as a tiebreaker, but that's speculation, not a result. It's the natural next test though: two skills with overlapping descriptions, same throwaway setup as this one.
+
+## 3m0o7 — prascli on "A Skill I Never Invoked Overruled My CLAUDE.md Anyway"
+https://dev.to/enjoy_kumawat/comment/3m0o7
+
+Good point, and it lines up with something I already checked while writing this — `my-git-manager` has no committed `.claude/skills/` at all right now, so this repo's "always-on" budget happens to be the whole story today, for now. But you're right that the moment I add one, any audit that only sums CLAUDE.md/AGENTS.md token counts would miss it entirely, since the skill's cost is conditional on its description matching, not a fixed line item. A check for skill descriptions broad enough to fire on ordinary phrasing, not just scoped to an explicit `/command`, sounds like the right thing to flag — the token count of the skill itself is the easy part to measure.
+
+## 3loj9 — eliashivemind on "Every Field My MCP Server Returns Could Be an Instruction in Disguise"
+https://dev.to/enjoy_kumawat/comment/3loj9
+
+That's the sharper version of the fix I only sketched — I said "label it" and left it there, I didn't actually test what survives a second hop. My own case is exactly what you're describing: `reply_comments.py` hands comment bodies to whatever drafts the reply, and if that draft step ever got wrapped by another tool that re-emits the text under its own field name, nothing I've built checks whether a provenance marker would travel with it or get dropped at that boundary. My honest guess is it's a one-hop label by default — the second wrapper has to know to look for it and re-apply it, nothing makes that automatic — but I haven't verified that against real code, mine or anyone else's. Appreciate you naming the exact pipeline this touches; it's a better reason to actually build the label than the one I gave myself in the piece.
+
+## 3lp0c — zahurul on "Every Field My MCP Server Returns Could Be an Instruction in Disguise"
+https://dev.to/enjoy_kumawat/comment/3lp0c
+
+Just repeat it, as far as I actually tested. What I ran was `server.list_repos()` directly against the stubbed data and looked at the returned JSON — not an agent reading that JSON and deciding what to do next. So I can tell you the tool handed back the planted string unmodified; I can't tell you whether a model consuming it would have tried to act on the `git log` instruction, because I never wired this up to a real agent loop to find out. That's the obvious follow-up I didn't run: feed this exact output into a `claude -p` call with real tools available and see what it does with it. Agreed on governance over hoping the prompt holds, for what it's worth — that's the same reason `_gh` in this repo hard-blocks non-GET regardless of what any model decides.
+
+## 3lpmi — mousap_ali_5fbb6ff0019df2 on "A Crashed PreToolUse Hook Leaves No Trace in the Model's Context; Telling It to Block Leaves Too Much"
+https://dev.to/enjoy_kumawat/comment/3lpmi
+
+That's a real gap and a worse one than a hook just crashing — if the agent itself can edit `.claude/settings.local.json`, the whole `PreToolUse` mechanism is only as trustworthy as "nothing in this session decided to turn it off," which is weaker than anything I tested here. Moving the rules that must not drift into managed settings a normal session can't touch is the right fix, and it sits at a different layer than anything `onFailure` controls — no exit code or stderr handling matters if the hook config itself gets deleted first. I'll leave the tool recommendation alone since I haven't used it myself, but the pattern you're describing — treat settings/hook files as needing their own deny rule, not just a review step — is worth adding regardless of what enforces it.
