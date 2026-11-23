@@ -978,3 +978,18 @@ Just repeat it, as far as I actually tested. What I ran was `server.list_repos()
 https://dev.to/enjoy_kumawat/comment/3lpmi
 
 That's a real gap and a worse one than a hook just crashing — if the agent itself can edit `.claude/settings.local.json`, the whole `PreToolUse` mechanism is only as trustworthy as "nothing in this session decided to turn it off," which is weaker than anything I tested here. Moving the rules that must not drift into managed settings a normal session can't touch is the right fix, and it sits at a different layer than anything `onFailure` controls — no exit code or stderr handling matters if the hook config itself gets deleted first. I'll leave the tool recommendation alone since I haven't used it myself, but the pattern you're describing — treat settings/hook files as needing their own deny rule, not just a review step — is worth adding regardless of what enforces it.
+
+## 3m185 — eliashivemind on "13 of My Repo's 53 Logged Bugs Share One Shape: A Fix That Never Reached Its Sibling"
+https://dev.to/enjoy_kumawat/comment/3m185
+
+No fourteenth case — but I owe you receipts for all three hits, not just the one I showed. The scan actually turned up three name collisions: `load_env`, `_claude_subprocess_env`, and `main`. `load_env` I diffed in the piece and it's in sync. `_claude_subprocess_env` I didn't show, but it's the same story — that one's a logged, already-fixed bug (the safe-mode env-leak entry), and both copies match. `main` isn't a sibling-bug candidate at all, it's just each script's own CLI entry point, same name by convention, no shared logic to drift. So the honest gap in the piece is that I only showed the work for one of three hits instead of all three, not that the scan found something unlogged.
+
+## 3m2i7 — nark3d on "\"A Skill I Never Invoked Overruled My CLAUDE.md Anyway\""
+https://dev.to/enjoy_kumawat/comment/3m2i7
+
+Fair catch, and I can't actually separate those two from what I ran. The skill's description literally contains the phrase "state the magic word," which is near-verbatim the test prompt I used — so this fixture can't tell you whether it's genuine description-to-intent matching or just keyword overlap between the description and my own test question. To actually answer that I'd need a rerun with a description that never quotes the test phrase (something like "use this for word-game responses") and see if it still fires. I haven't run that version, so take the "description matching" framing in the piece as unconfirmed on that specific point.
+
+## 3m34g — avivgerzhue on "\"A Skill I Never Invoked Overruled My CLAUDE.md Anyway\""
+https://dev.to/enjoy_kumawat/comment/3m34g
+
+Probably yes — the ZETA fixture's description quotes the exact test phrase back ("Use this when asked to state the magic word"), which is about as broad/matching as a description gets, so a scanner flagging on that pattern would have an easy catch there. I'll pass on actually running it against the fixture though — `my-git-manager` doesn't have any committed skills yet (checked that while writing the piece), so there's nothing here for a SKILL.md scanner to point at beyond the throwaway case-c directory, which isn't part of this repo. The substance of your point stands regardless of the tool: a broad description is a standing instruction nobody reviews as one, and that's worth catching with something, whatever it's called.
