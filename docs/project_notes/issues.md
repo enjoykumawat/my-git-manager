@@ -1685,3 +1685,6 @@
 - **Draft**: `drafts/why-my-devto-account-has-never-posted-a-comment-reply.md`
 - **Live URL**:
   - https://dev.to/enjoy_kumawat/why-my-devto-account-has-never-posted-a-single-comment-reply-27gf
+
+### 2026-11-24 - DEV.to comment-reply pipeline: 2 replies drafted
+- 2 pending top-level comments found across two articles. "Zero Keyword Overlap Still Got My Skill to Override CLAUDE.md" (1 comment: skillselion pointing to `disable-model-invocation: true` SKILL.md frontmatter and the `user-invocable-only` `skillOverrides` setting as the actual fix, and proposing a fifth control — rerun the paraphrased fixture with model-invocation disabled and see if it reverts to `ALPHA`; agreed it's the sharper test, haven't run it yet, noted it would reframe the finding from "broad descriptions need review" to "this skill shouldn't be model-invocable at all"). "A Skill I Never Invoked Overruled My CLAUDE.md Anyway" (1 comment: kling4ai-production, general agreement referencing the stream-json trace that proved the `Skill` tool call — short reply affirming the same point). No spam/skips this run.

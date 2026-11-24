@@ -993,3 +993,13 @@ Fair catch, and I can't actually separate those two from what I ran. The skill's
 https://dev.to/enjoy_kumawat/comment/3m34g
 
 Probably yes — the ZETA fixture's description quotes the exact test phrase back ("Use this when asked to state the magic word"), which is about as broad/matching as a description gets, so a scanner flagging on that pattern would have an easy catch there. I'll pass on actually running it against the fixture though — `my-git-manager` doesn't have any committed skills yet (checked that while writing the piece), so there's nothing here for a SKILL.md scanner to point at beyond the throwaway case-c directory, which isn't part of this repo. The substance of your point stands regardless of the tool: a broad description is a standing instruction nobody reviews as one, and that's worth catching with something, whatever it's called.
+
+## 3m4je — skillselion on "Zero Keyword Overlap Still Got My Skill to Override CLAUDE.md"
+https://dev.to/enjoy_kumawat/comment/3m4je
+
+Haven't run that fifth control yet, but it's the sharper test and it would actually change what this finding is about. If `disable-model-invocation: true` strips the description out of context entirely, there's no trigger condition left for the model to match against no matter how far I paraphrase it — a flip back to `ALPHA` there wouldn't mean "the audit needs broader keyword review," it'd mean this skill should never have had model-invocation on in the first place. `user-invocable-only` under `skillOverrides` is the same idea from the other side, for skills you can't edit yourself. I'll add that run next and say so if it moves the result — a concrete frontmatter field to test beats another "review your descriptions" takeaway.
+
+## 3m4eg — kling4ai-production on "A Skill I Never Invoked Overruled My CLAUDE.md Anyway"
+https://dev.to/enjoy_kumawat/comment/3m4eg
+
+That's the piece in one line, honestly — the part that surprised me too was that `CLAUDE.md` isn't winning the conflict cases by content priority, it's just always-loaded, and a Skill beats it by sidestepping that axis entirely: the description is a trigger condition, not a rule, so once it matches, its content is simply the newest thing in context. I only trusted that result because of the stream-json trace — a plain `--output-format json` run would've shown me the final answer and nothing about the `Skill` tool call that produced it.
