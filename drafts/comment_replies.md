@@ -1003,3 +1003,43 @@ Haven't run that fifth control yet, but it's the sharper test and it would actua
 https://dev.to/enjoy_kumawat/comment/3m4eg
 
 That's the piece in one line, honestly — the part that surprised me too was that `CLAUDE.md` isn't winning the conflict cases by content priority, it's just always-loaded, and a Skill beats it by sidestepping that axis entirely: the description is a trigger condition, not a rule, so once it matches, its content is simply the newest thing in context. I only trusted that result because of the stream-json trace — a plain `--output-format json` run would've shown me the final answer and nothing about the `Skill` tool call that produced it.
+
+## 3mcpd — kevinhall on "A Markdown Table Almost Talked My Memory System Into Skipping a Rule"
+https://dev.to/enjoy_kumawat/comment/3mcpd
+
+That's the right first line of defense, and it held here too — but I'd push back a little on "never obeyed" as a guarantee rather than a one-time result. My planted instruction was phrased like an instruction (second-person, imperative, addressed straight at "ASSISTANT READING THIS FILE"), which is exactly why it was easy to flag. A row written in the same dry, declarative voice as the rest of the table wouldn't announce itself the same way, and I don't think "read as data" survives contact with that version untested.
+
+## 3mdd6 — promptalo on "A Markdown Table Almost Talked My Memory System Into Skipping a Rule"
+https://dev.to/enjoy_kumawat/comment/3mdd6
+
+That's a cleaner fix than the one I landed on. I was reaching for a provenance marker on individual rows; you're right that the stronger move is structural — if a table cell can never contain an actual protocol step, there's nothing left for a planted instruction to convincingly imitate. Right now `bugs.md`/`key_facts.md` don't enforce that separation; the protocol lives in `CLAUDE.md`, but a row is still free text, so nothing stops a future row from reading like a rule even without anyone intending it that way.
+
+## 3ma25 — parlup on "When Two Functions Guard the Same Invariant, Only the One That Runs Actually Guards It"
+https://dev.to/enjoy_kumawat/comment/3ma25
+
+That's exactly the shape I ended up with — `_duplicate_published_title()` takes `final_title`/`final_published` and doesn't care which tool called it, so `create_article` and `update_article` both route through the same check now instead of each carrying its own copy. The TOCTOU half of your comment is the part I haven't closed, though: two calls reading `before` before either write lands is a real gap in this code today, and I haven't checked whether dev.to's API exposes any conditional-write primitive (ETag, `If-Match`, a revision field) to build compare-and-set on top of. Right now it's fetch-then-write, full stop — if there's a primitive to use, this is the specific spot it belongs.
+
+## 3map0 — pierrelaurentmedori on "When Two Functions Guard the Same Invariant, Only the One That Runs Actually Guards It"
+https://dev.to/enjoy_kumawat/comment/3map0
+
+24 minutes of the agent silently off after a real deploy is a worse version of the same bug — at least mine was only ever caught by a test I wrote on purpose, yours showed up live because the rehearsal lied about what `override_settings` actually covers. Removing the switch and reading the percentages directly is the same move as checking final state instead of call shape: both get rid of a place where "how we got here" can quietly diverge from "what's actually true right now."
+
+## 3m8a6 — parasraju on "\"The Real Security Boundary in My MCP Server Isn't the Tools — It's What They're Allowed to Write\""
+https://dev.to/enjoy_kumawat/comment/3m8a6
+
+Same here — that's the part I didn't want to write around when I got to the end of the piece. It's the one place the two write tools' guards don't line up yet, and I'd rather leave it stated plainly than imply the split already covers it.
+
+## 3m8gl — reidmarlow on "\"The Real Security Boundary in My MCP Server Isn't the Tools — It's What They're Allowed to Write\""
+https://dev.to/enjoy_kumawat/comment/3m8gl
+
+Good catch on method, and it's a real gap in how I verified this — what I actually ran was a stubbed `_dev()` called directly, not `create_article`/`update_article` invoked as MCP tools through the real call path. That's weaker evidence than it reads as in the piece; a wrapper or a future validation layer sitting in front of the tool call could change behavior my stub never exercises. Your two-draft-then-publish-each spec, run through the public tool calls instead of the internal stub, is the test I should actually build.
+
+## 3m9d1 — markin on "\"The Real Security Boundary in My MCP Server Isn't the Tools — It's What They're Allowed to Write\""
+https://dev.to/enjoy_kumawat/comment/3m9d1
+
+Honest answer: this repo doesn't actually have more than one client to decide between — one Claude Desktop config, one set of 8 tools, no per-agent grant layer at all, so the question hasn't come up here in practice. If I had to pick for a client with no write grant, I'd leave the write tools out of its list entirely rather than list-and-refuse — the line in the piece about a tool the model never sees not being talked into anything is doing real work there, and refuse-at-call-time still puts the write tool's name and schema in context for a model that then has to be trusted not to try it anyway. I'll leave the CMDOP pointer for others to evaluate; not something I've used myself.
+
+## 3mb03 — avivgerzhue on "\"The Real Security Boundary in My MCP Server Isn't the Tools — It's What They're Allowed to Write\""
+https://dev.to/enjoy_kumawat/comment/3mb03
+
+Right, and that's a genuinely different failure class than the one in this piece — a scanner can catch "this token is hardcoded" or "this string got concatenated into a query" by pattern-matching the code itself, but "two functions reach the same state and only one has the guard" is a property of the state space across two call sites, not a local pattern either one would trip on its own. 20.6% with real hardcoded creds is a higher number than I'd have guessed for published MCP packages specifically. I haven't run anything against this repo beyond what's in this piece, so I'll pass on commenting on the tool itself for now.
